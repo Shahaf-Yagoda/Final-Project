@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+from src.database.database_connection import get_connection
 
 ###############################
 #  1) Setup MediaPipe Pose    #
@@ -201,6 +202,42 @@ def check_squat_form(image, landmarks):
     else:
         cv2.putText(image, "Not in down position", (30, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+
+
+def save_keypoints_to_db(keypoints_data, workout_id):
+    """
+    Inserts keypoints into the 'keypoints' table in the database.
+    Adjust the SQL INSERT query and the column names to match your actual schema.
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()  # from database_connection.py
+        cursor = conn.cursor()
+
+        # Convert the Python dict to a JSON string if your DB column is JSON/JSONB.
+        keypoints_json = json.dumps(keypoints_data)
+        current_timestamp = datetime.now()
+
+        insert_query = """
+            INSERT INTO keypoints (workout_id, timestamp, keypoints)
+            VALUES (%s, %s, %s);
+        """
+        cursor.execute(insert_query, (workout_id, current_timestamp, keypoints_json))
+        conn.commit()
+
+        print("Keypoints saved to DB successfully.")
+
+    except Exception as e:
+        print("Error inserting keypoints into the database:", e)
+        if conn:
+            conn.rollback()
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
 
 
 ###############################
