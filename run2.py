@@ -161,48 +161,43 @@ def is_down_position(landmarks):
 #  4) Main Checking Function  #
 ###############################
 def check_squat_form(image, landmarks):
-    # 1) Feet width
     feet_ok, feet_ratio = check_feet_width(landmarks, threshold_ratio=0.2)
     cv2.putText(image,
                 f"Feet ratio: {feet_ratio:.2f} => {'OK' if feet_ok else 'NOT OK'}",
                 (30, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0) if feet_ok else (0, 0, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if feet_ok else (0, 0, 255), 3)
 
-    # 2) Back angle (expect ~135–150)
     back_angle = check_back_angle(landmarks)
     back_ok = 135 <= back_angle <= 150
     cv2.putText(image,
                 f"Back angle: {back_angle:.1f} => {'OK' if back_ok else 'NOT OK'}",
                 (30, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0) if back_ok else (0, 0, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if back_ok else (0, 0, 255), 3)
 
-    # 3) Neck angle (170–180)
     neck_angle = check_neck_angle(landmarks)
     neck_ok = 170 <= neck_angle <= 180
     cv2.putText(image,
                 f"Neck angle: {neck_angle:.1f} => {'OK' if neck_ok else 'NOT OK'}",
                 (30, 90),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0) if neck_ok else (0, 0, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if neck_ok else (0, 0, 255), 3)
 
-    # 4) Check knee & hip angles only if "down"
     if is_down_position(landmarks):
         knee_angle = check_knee_angle(landmarks)
-        knee_ok = 100 <= knee_angle <= 120  # "ideal range" in the bottom
+        knee_ok = 100 <= knee_angle <= 120
         cv2.putText(image,
                     f"Knee angle: {knee_angle:.1f} => {'OK' if knee_ok else 'NOT OK'}",
                     (30, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0) if knee_ok else (0, 0, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if knee_ok else (0, 0, 255), 3)
 
         hip_angle = check_hip_angle(landmarks)
-        hip_ok = 90 <= hip_angle <= 110  # "ideal range" in the bottom
+        hip_ok = 90 <= hip_angle <= 110
         cv2.putText(image,
                     f"Hip angle: {hip_angle:.1f} => {'OK' if hip_ok else 'NOT OK'}",
                     (30, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0) if hip_ok else (0, 0, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if hip_ok else (0, 0, 255), 3)
     else:
         cv2.putText(image, "Not in down position", (30, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 3)
 
 def save_keypoints_to_db(keypoints_data, workout_id):
     """
