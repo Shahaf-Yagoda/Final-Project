@@ -2,6 +2,9 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from src.database.database_connection import get_connection
+import json
+from datetime import datetime
+
 
 ###############################
 #  1) Setup MediaPipe Pose    #
@@ -199,26 +202,23 @@ def check_squat_form(image, landmarks):
         cv2.putText(image, "Not in down position", (30, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 3)
 
-def save_keypoints_to_db(keypoints_data, workout_id):
-    """
-    Inserts keypoints into the 'keypoints' table in the database.
-    Adjust the SQL INSERT query and the column names to match your actual schema.
-    """
+def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
+    """Inserts keypoints into the 'keypoints' table in the database.
+    Now includes 'workout' column."""
     conn = None
     cursor = None
     try:
-        conn = get_connection()  # from database_connection.py
+        conn = get_connection()
         cursor = conn.cursor()
 
-        # Convert the Python dict to a JSON string if your DB column is JSON/JSONB.
         keypoints_json = json.dumps(keypoints_data)
         current_timestamp = datetime.now()
 
         insert_query = """
-            INSERT INTO keypoints (workout_id, timestamp, keypoints)
-            VALUES (%s, %s, %s);
+            INSERT INTO keypoints (workout_id, timestamp, keypoints, workout)
+            VALUES (%s, %s, %s, %s);
         """
-        cursor.execute(insert_query, (workout_id, current_timestamp, keypoints_json))
+        cursor.execute(insert_query, (workout_id, current_timestamp, keypoints_json, workout_name))
         conn.commit()
 
         print("Keypoints saved to DB successfully.")
@@ -240,7 +240,6 @@ def save_keypoints_to_db(keypoints_data, workout_id):
 ###############################
 def main():
     cap = cv2.VideoCapture(0)
-    # Initialize MediaPipe Pose
     with mp_pose.Pose(
             static_image_mode=False,
             model_complexity=1,
@@ -254,22 +253,27 @@ def main():
                 print("Failed to grab frame from camera.")
                 break
 
-            # Convert the BGR image to RGB for MediaPipe
             image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(image_rgb)
 
-            # If landmarks are found, run checks
             if results.pose_landmarks:
                 landmarks = results.pose_landmarks.landmark
-                # Visualize landmarks (optional)
                 mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
-                # Perform squat form checks and annotate
                 check_squat_form(frame, landmarks)
 
-            cv2.imshow('Squat Tracker', frame)
+                # 🧠 Save keypoints to DB
+                keypoints_data = [
+                    {
+                        "x": lm.x,
+                        "y": lm.y,
+                        "z": lm.z,
+                        "visibility": lm.visibility
+                    } for lm in landmarks
+                ]
+                save_keypoints_to_db(keypoints_data, workout_id=1, workout_name="squat")
 
-            # Press 'ESC' to exit
+            cv2.imshow('Squat Tracker', frame)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
