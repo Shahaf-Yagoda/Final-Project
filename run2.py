@@ -263,15 +263,28 @@ def main():
                 check_squat_form(frame, landmarks)
 
                 # 🧠 Save keypoints to DB
-                keypoints_data = [
-                    {
-                        "x": lm.x,
-                        "y": lm.y,
-                        "z": lm.z,
-                        "visibility": lm.visibility
-                    } for lm in landmarks
-                ]
-                save_keypoints_to_db(keypoints_data, workout_id=1, workout_name="squat")
+            # Selected keypoints to track
+            named_keypoints = {
+                "left_shoulder": landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
+                "left_hip": landmarks[mp_pose.PoseLandmark.LEFT_HIP.value],
+                "left_knee": landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value],
+                "left_ankle": landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value],
+                "left_ear": landmarks[mp_pose.PoseLandmark.LEFT_EAR.value],
+                "right_shoulder": landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
+                "right_ankle": landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value],
+            }
+
+            # Build a dict of just x, y, z, visibility for each
+            keypoints_data = {
+                name: {
+                    "x": lm.x,
+                    "y": lm.y,
+                    "z": lm.z,
+                    "visibility": lm.visibility
+                }
+                for name, lm in named_keypoints.items()
+            }
+            save_keypoints_to_db(keypoints_data, workout_id=2, workout_name="squat")
 
             cv2.imshow('Squat Tracker', frame)
             if cv2.waitKey(5) & 0xFF == 27:
