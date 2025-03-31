@@ -15,6 +15,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from users.register import register_user
 from run2 import check_squat_form
 import mediapipe as mp
+from users.login import login_user
+
 
 # Session state to track navigation
 if "page" not in st.session_state:
@@ -45,18 +47,23 @@ elif st.session_state.page == "Register":
     dob = st.date_input("Date of Birth")
     role = st.selectbox("Role", ["user", "admin", "coach"])
     parent = st.text_input("Parent ID (optional)")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
     if st.button("Register"):
-        parent_id = int(parent) if parent else None
-        result = register_user(name, email, dob, role, parent_id)
-
-        if isinstance(result, int):
-            st.success(f"User registered with ID: {result}")
+        if not username or not password:
+            st.error("Username and password are required.")
         else:
-            st.error(result)
+            parent_id = int(parent) if parent else None
+            result = register_user(name, email, dob, role, parent_id, username, password)
 
+            if isinstance(result, int):
+                st.success(f"User registered with ID: {result}")
+            else:
+                st.error(result)
 
     st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
+
 
 # Analyze Video Page (your original logic)
 elif st.session_state.page == "Analyze":
@@ -110,7 +117,19 @@ elif st.session_state.page == "Analyze":
 
 # Placeholder pages
 elif st.session_state.page == "Login":
-    st.title("Log In (Coming Soon)")
+    st.title("User Login")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Log In"):
+        user_id, error = login_user(username, password)
+
+        if user_id:
+            st.success(f"Login successful! Welcome, user #{user_id}.")
+        else:
+            st.error(error)
+
     st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
 
 elif st.session_state.page == "TBD":
