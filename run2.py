@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import time
 from src.database.database_connection import get_connection
 import json
 from datetime import datetime
@@ -13,6 +14,11 @@ from dotenv import load_dotenv
 ###############################
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
+
+# Tracking states
+start_position_ready = False
+rep_count = 0
+direction = None  # "up" or "down"
 
 
 ###############################
@@ -162,47 +168,205 @@ def is_down_position(landmarks):
     return angle_knee < 140
 
 
+def draw_joint_angle(image, a, b, c, angle, min_ok, max_ok, label="", override_color=None):
+    """
+    Draws lines (a–b, b–c) and labels the angle at point b.
+    Allows override_color for custom arc color (e.g., yellow during transition).
+    """
+    h, w = image.shape[:2]
+    pt_a = (int(a[0] * w), int(a[1] * h))
+    pt_b = (int(b[0] * w), int(b[1] * h))
+    pt_c = (int(c[0] * w), int(c[1] * h))
+
+    # Determine color
+    if override_color is not None:
+        color = override_color
+    else:
+        color = (0, 255, 0) if min_ok <= angle <= max_ok else (0, 0, 255)
+
+    # Draw lines
+    cv2.line(image, pt_a, pt_b, color, 4)
+    cv2.line(image, pt_b, pt_c, color, 4)
+
+    # Label with angle
+    text = f"{label}{angle:.1f}°"
+    (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+
+    # Bubble background
+    cv2.rectangle(image,
+                  (pt_b[0], pt_b[1] - text_height - 10),
+                  (pt_b[0] + text_width + 10, pt_b[1] + 5),
+                  (0, 0, 0),  # black background
+                  -1)
+
+    # Draw text
+    cv2.putText(image, text, (pt_b[0] + 5, pt_b[1] - 5),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
+
 ###############################
 #  4) Main Checking Function  #
 ###############################
-def check_squat_form(image, landmarks):
-    feet_ok, feet_ratio = check_feet_width(landmarks, threshold_ratio=0.2)
-    cv2.putText(image,
-                f"Feet ratio: {feet_ratio:.2f} => {'OK' if feet_ok else 'NOT OK'}",
-                (30, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if feet_ok else (0, 0, 255), 3)
+def check_lunge_form(image, landmarks):
+    # קדמי
+    hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+           landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+    knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+            landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+    ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
+             landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
 
-    back_angle = check_back_angle(landmarks)
-    back_ok = 135 <= back_angle <= 150
+    knee_angle = calculate_angle(hip, knee, ankle)
+    knee_ok = 80 <= knee_angle <= 100
+
+    cv2.putText(image,
+                f"Knee angle: {knee_angle:.1f} => {'OK' if knee_ok else 'NOT OK'}",
+                (30, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if knee_ok else (0, 0, 255), 3)
+
+    # גב זקוף
+    shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+    back_angle = calculate_angle(shoulder, hip, knee)
+    back_ok = back_angle > 160
+
     cv2.putText(image,
                 f"Back angle: {back_angle:.1f} => {'OK' if back_ok else 'NOT OK'}",
                 (30, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if back_ok else (0, 0, 255), 3)
 
-    neck_angle = check_neck_angle(landmarks)
-    neck_ok = 170 <= neck_angle <= 180
+
+def check_overhead_press_form(image, landmarks, state):
+    h, w = image.shape[:2]
+    current_time = time.time()
+    feedback = []
+
+    # LEFT SIDE
+    shoulder_l = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                  landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+    elbow_l = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
+               landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y]
+    wrist_l = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,
+               landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
+    hip_l = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+             landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+    knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+              landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+
+    # RIGHT SIDE
+    shoulder_r = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
+                  landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
+    elbow_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
+               landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
+    wrist_r = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
+               landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
+    hip_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
+             landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
+    knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
+              landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
+
+    # ANGLES
+    elbow_angle_l = calculate_angle(shoulder_l, elbow_l, wrist_l)
+    elbow_angle_r = calculate_angle(shoulder_r, elbow_r, wrist_r)
+    back_angle_l = calculate_angle(shoulder_l, hip_l, knee_l)
+    back_angle_r = calculate_angle(shoulder_r, hip_r, knee_r)
+
+    # PHASE DETECTION (for either side)
+    def get_phase(elbow_angle):
+        if 85 <= elbow_angle <= 95:
+            return "bottom"
+        elif elbow_angle > 165:
+            return "top"
+        elif 95 < elbow_angle < 165:
+            return "transition"
+        else:
+            return "invalid"
+
+    phase_l = get_phase(elbow_angle_l)
+    phase_r = get_phase(elbow_angle_r)
+
+    # Select arc color based on phase
+    def get_arc_color(phase, back_ok=True):
+        if phase == "top" or phase == "bottom":
+            return (0, 255, 0) if back_ok else (0, 0, 255)
+        elif phase == "transition":
+            return (0, 255, 255)  # yellow
+        else:
+            return (0, 0, 255)
+
+    back_ok_l = back_angle_l >= 165
+    back_ok_r = back_angle_r >= 165
+
+    # DRAW JOINTS
+    draw_joint_angle(image, shoulder_l, elbow_l, wrist_l, elbow_angle_l, 165, 180,
+                     label="Elbow (L): ", override_color=get_arc_color(phase_l, back_ok_l))
+    draw_joint_angle(image, shoulder_r, elbow_r, wrist_r, elbow_angle_r, 165, 180,
+                     label="Elbow (R): ", override_color=get_arc_color(phase_r, back_ok_r))
+
+    draw_joint_angle(image, shoulder_l, hip_l, knee_l, back_angle_l, 165, 180,
+                     label="Back (L): ", override_color=(0, 255, 0) if back_ok_l else (0, 0, 255))
+    draw_joint_angle(image, shoulder_r, hip_r, knee_r, back_angle_r, 165, 180,
+                     label="Back (R): ", override_color=(0, 255, 0) if back_ok_r else (0, 0, 255))
+
+    # ❌ FORM WARNINGS
+    if not back_ok_l or not back_ok_r:
+        feedback.append("Warning: Arching lower back")
+    if abs(wrist_l[0] - elbow_l[0]) > 0.05 or abs(wrist_r[0] - elbow_r[0]) > 0.05:
+        feedback.append("Wrist not stacked over elbow")
+    if abs(elbow_l[0] - shoulder_l[0]) > 0.15 or abs(elbow_r[0] - shoulder_r[0]) > 0.15:
+        feedback.append("Elbows too far from shoulder")
+
+    # ✅ REPS LOGIC
+    ready_l = phase_l == "bottom" and back_ok_l
+    ready_r = phase_r == "bottom" and back_ok_r
+    extended_l = phase_l == "top"
+    extended_r = phase_r == "top"
+
+    if not state["ready"] and (ready_l or ready_r):
+        state["ready"] = True
+        state["last_message"] = "Ready position detected"
+        state["message_timer"] = current_time
+
+    if state["ready"] and state["direction"] != "up" and (extended_l or extended_r):
+        state["direction"] = "up"
+
+    if state["direction"] == "up" and (ready_l or ready_r):
+        state["direction"] = "down"
+        state["count"] += 1
+        state["last_message"] = f"Rep #{state['count']} completed"
+        state["message_timer"] = current_time
+
+    # 🧾 Display feedback
+    cv2.putText(image, f"Reps: {state['count']}", (30, 90),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
+
+    y_offset = 130
+    for msg in feedback:
+        cv2.putText(image, msg, (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+        y_offset += 30
+
+    # Persistent message (for rep complete / ready)
+    if current_time - state.get("message_timer", 0) < 3:
+        cv2.putText(image, state.get("last_message", ""), (30, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
+
+
+def check_plank_form(image, landmarks):
+    shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+    hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+           landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+    ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
+             landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
+
+    plank_angle = calculate_angle(shoulder, hip, ankle)
+    plank_ok = 165 <= plank_angle <= 180
+
     cv2.putText(image,
-                f"Neck angle: {neck_angle:.1f} => {'OK' if neck_ok else 'NOT OK'}",
-                (30, 90),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if neck_ok else (0, 0, 255), 3)
+                f"Plank Body Line: {plank_angle:.1f} => {'OK' if plank_ok else 'NOT OK'}",
+                (30, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if plank_ok else (0, 0, 255), 3)
 
-    if is_down_position(landmarks):
-        knee_angle = check_knee_angle(landmarks)
-        knee_ok = 100 <= knee_angle <= 120
-        cv2.putText(image,
-                    f"Knee angle: {knee_angle:.1f} => {'OK' if knee_ok else 'NOT OK'}",
-                    (30, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if knee_ok else (0, 0, 255), 3)
-
-        hip_angle = check_hip_angle(landmarks)
-        hip_ok = 90 <= hip_angle <= 110
-        cv2.putText(image,
-                    f"Hip angle: {hip_angle:.1f} => {'OK' if hip_ok else 'NOT OK'}",
-                    (30, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if hip_ok else (0, 0, 255), 3)
-    else:
-        cv2.putText(image, "Not in down position", (30, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 3)
 
 def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
     """
@@ -248,7 +412,17 @@ def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
 #  5) Main Entry Point        #
 ###############################
 def main():
+    state = {
+        "ready": False,
+        "direction": None,
+        "count": 0,
+        "last_message": "",
+        "message_timer": 0,
+        "feedback": []
+    }
+
     cap = cv2.VideoCapture(0)
+    workout_name = "press"  # 👈 שים כאן "lunge" / "press" / "plank" לפי התרגיל
     with mp_pose.Pose(
             static_image_mode=False,
             model_complexity=1,
@@ -259,7 +433,6 @@ def main():
         while True:
             success, frame = cap.read()
             if not success:
-                print("Failed to grab frame from camera.")
                 break
 
             image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -269,38 +442,26 @@ def main():
                 landmarks = results.pose_landmarks.landmark
                 mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
-                check_squat_form(frame, landmarks)
+                # תרגיל נבחר
+                if workout_name == "lunge":
+                    check_lunge_form(frame, landmarks)
+                elif workout_name == "press":
+                    check_overhead_press_form(frame, landmarks, state)
+                elif workout_name == "plank":
+                    check_plank_form(frame, landmarks)
 
-                # 🧠 Save keypoints to DB
-            # Selected keypoints to track
-            named_keypoints = {
-                "left_shoulder": landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
-                "left_hip": landmarks[mp_pose.PoseLandmark.LEFT_HIP.value],
-                "left_knee": landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value],
-                "left_ankle": landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value],
-                "left_ear": landmarks[mp_pose.PoseLandmark.LEFT_EAR.value],
-                "right_shoulder": landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
-                "right_ankle": landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value],
-            }
+                # שמירה למסד נתונים
+                keypoints_data = [{
+                    "x": lm.x, "y": lm.y, "z": lm.z, "visibility": lm.visibility
+                } for lm in landmarks]
+                save_keypoints_to_db(keypoints_data, workout_id=1, workout_name=workout_name)
 
-            # Build a dict of just x, y, z, visibility for each
-            keypoints_data = {
-                name: {
-                    "x": lm.x,
-                    "y": lm.y,
-                    "z": lm.z,
-                    "visibility": lm.visibility
-                }
-                for name, lm in named_keypoints.items()
-            }
-            save_keypoints_to_db(keypoints_data, workout_id=2, workout_name="squat")
-
-            cv2.imshow('Squat Tracker', frame)
+            cv2.imshow('Pose Tracker', frame)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
-    cap.release()
-    cv2.destroyAllWindows()
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
