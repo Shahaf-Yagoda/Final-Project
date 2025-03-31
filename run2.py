@@ -4,6 +4,8 @@ import numpy as np
 from src.database.database_connection import get_connection
 import json
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
 
 ###############################
@@ -203,12 +205,18 @@ def check_squat_form(image, landmarks):
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 3)
 
 def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
-    """Inserts keypoints into the 'keypoints' table in the database.
-    Now includes 'workout' column."""
+    """
+    Inserts keypoints into the 'keypoints' table in the appropriate database (local or cloud).
+    Uses the USE_CLOUD_DB environment variable to determine the target DB.
+    """
     conn = None
     cursor = None
+
     try:
-        conn = get_connection()
+        load_dotenv(override=True)
+        use_cloud = os.getenv("USE_CLOUD_DB", "false").lower() == "true"  # ✅ convert to boolean
+
+        conn = get_connection(use_cloud)  # ✅ now passing actual boolean
         cursor = conn.cursor()
 
         keypoints_json = json.dumps(keypoints_data)
@@ -221,10 +229,11 @@ def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
         cursor.execute(insert_query, (workout_id, current_timestamp, keypoints_json, workout_name))
         conn.commit()
 
-        print("Keypoints saved to DB successfully.")
+        db_type = "Cloud" if use_cloud else "Local"
+        print(f"✅ Keypoints saved successfully to {db_type} DB.")
 
     except Exception as e:
-        print("Error inserting keypoints into the database:", e)
+        print("❌ Error inserting keypoints into the database:", e)
         if conn:
             conn.rollback()
     finally:
