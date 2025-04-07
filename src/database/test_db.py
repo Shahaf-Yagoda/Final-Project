@@ -20,5 +20,5 @@ def test_connection(use_cloud: bool):
         print(f"❌ {db_type} DB connection failed: {e}")
 
 # Test both connections
-#test_connection(use_cloud=True)
-#test_connection(use_cloud=False)
+# test_connection(use_cloud=True)
+# test_connection(use_cloud=False)
