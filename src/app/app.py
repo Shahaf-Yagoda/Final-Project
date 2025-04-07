@@ -30,13 +30,16 @@ if st.session_state.page == "Home":
     st.title("Welcome to Right Motion")
     st.subheader("Choose an option:")
 
-    col1, col2 = st.columns(2)
+    col1, col2 , col3= st.columns(3)
     with col1:
         st.button("🔐 Register", on_click=set_page, args=("Register",))
         st.button("📹 Analyze Video", on_click=set_page, args=("Analyze",))
     with col2:
         st.button("🔑 Log In", on_click=set_page, args=("Login",))
         st.button("🧩 TBD", on_click=set_page, args=("TBD",))
+    with col3:
+        st.button("🏃 Live Exercise", on_click=set_page, args=("LiveExercise",))
+        st.button("🏃 TBD", on_click=set_page, args=("TBD",))
 
 # Register Page
 elif st.session_state.page == "Register":
@@ -100,7 +103,19 @@ elif st.session_state.page == "Analyze":
                 results = pose.process(rgb_frame)
                 if results.pose_landmarks:
                     mp.solutions.drawing_utils.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-                    check_overhead_press_form(frame, results.pose_landmarks.landmark)
+                    # Initialize state
+                if "press_state" not in st.session_state:
+                    st.session_state.press_state = {
+                        "ready": False,
+                        "direction": None,
+                        "count": 0,
+                        "last_message": "",
+                        "message_timer": 0,
+                        "feedback": []
+                    }
+
+                check_overhead_press_form(frame, results.pose_landmarks.landmark, st.session_state.press_state)
+
                 out.write(frame)
 
             cap.release()
@@ -135,3 +150,21 @@ elif st.session_state.page == "Login":
 elif st.session_state.page == "TBD":
     st.title("This feature is coming soon!")
     st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
+
+    ############## Choose excersice #############
+elif st.session_state.page == "LiveExercise":
+    st.title("Live Exercise Tracking")
+    exercise = st.selectbox("Choose exercise", ["press", "lunge", "plank"])
+
+    if st.button("Start Live Tracking"):
+        st.success(f"Launching live tracking for: {exercise}")
+
+        # Construct the command
+        main_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "main.py"))
+        command = f"python {main_script} --exercise {exercise}"
+
+        # Run as a subprocess (will open webcam window)
+        subprocess.Popen(command, shell=True)
+
+    st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
+

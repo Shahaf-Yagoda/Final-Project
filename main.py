@@ -411,7 +411,7 @@ def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
 ###############################
 #  5) Main Entry Point        #
 ###############################
-def main():
+def main(exercise_name):
     state = {
         "ready": False,
         "direction": None,
@@ -422,7 +422,7 @@ def main():
     }
 
     cap = cv2.VideoCapture(0)
-    workout_name = "press"  # 👈 "lunge" / "press" / "plank" by exercise
+    workout_name = exercise_name  # 👈 "lunge" / "press" / "plank" by exercise
     with mp_pose.Pose(
             static_image_mode=False,
             model_complexity=1,
@@ -465,4 +465,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exercise", type=str, default="press", help="Exercise to perform (press, lunge, plank)")
+    args = parser.parse_args()
+
+    main(exercise_name=args.exercise)
+
+
