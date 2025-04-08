@@ -1,0 +1,18 @@
+// ERD - Training System
+digraph {
+	fontsize=20 rankdir=LR
+	User [label=<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'><TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>User</B></TD></TR><TR><TD ALIGN='LEFT'>user_id: int (PK)</TD></TR><TR><TD ALIGN='LEFT'>name: string</TD></TR><TR><TD ALIGN='LEFT'>email: string</TD></TR><TR><TD ALIGN='LEFT'>date_of_birth: date</TD></TR><TR><TD ALIGN='LEFT'>registration_date: datetime</TD></TR><TR><TD ALIGN='LEFT'>role: string</TD></TR></TABLE>> shape=plaintext]
+	Trainer [label=<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'><TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>Trainer</B></TD></TR><TR><TD ALIGN='LEFT'>user_id: int (PK, FK)</TD></TR><TR><TD ALIGN='LEFT'>specialty: string</TD></TR></TABLE>> shape=plaintext]
+	Trainee [label=<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'><TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>Trainee</B></TD></TR><TR><TD ALIGN='LEFT'>user_id: int (PK, FK)</TD></TR><TR><TD ALIGN='LEFT'>progress: json</TD></TR></TABLE>> shape=plaintext]
+	Admin [label=<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'><TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>Admin</B></TD></TR><TR><TD ALIGN='LEFT'>user_id: int (PK, FK)</TD></TR><TR><TD ALIGN='LEFT'>permissions: json</TD></TR></TABLE>> shape=plaintext]
+	Session [label=<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'><TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>Session</B></TD></TR><TR><TD ALIGN='LEFT'>session_id: int (PK)</TD></TR><TR><TD ALIGN='LEFT'>user_id: int (FK)</TD></TR><TR><TD ALIGN='LEFT'>start_time: datetime</TD></TR><TR><TD ALIGN='LEFT'>end_time: datetime</TD></TR><TR><TD ALIGN='LEFT'>exercise_type: string</TD></TR><TR><TD ALIGN='LEFT'>exercise_counter: int</TD></TR><TR><TD ALIGN='LEFT'>feedback_count: int</TD></TR><TR><TD ALIGN='LEFT'>performance_score: float</TD></TR><TR><TD ALIGN='LEFT'>duration_seconds: int</TD></TR></TABLE>> shape=plaintext]
+	Exercise [label=<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'><TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>Exercise</B></TD></TR><TR><TD ALIGN='LEFT'>exercise_id: int (PK)</TD></TR><TR><TD ALIGN='LEFT'>name: string</TD></TR></TABLE>> shape=plaintext]
+	Feedback [label=<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'><TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>Feedback</B></TD></TR><TR><TD ALIGN='LEFT'>feedback_id: int (PK)</TD></TR><TR><TD ALIGN='LEFT'>session_id: int (FK)</TD></TR><TR><TD ALIGN='LEFT'>trainer_id: int (FK)</TD></TR><TR><TD ALIGN='LEFT'>comments: text</TD></TR><TR><TD ALIGN='LEFT'>timestamp: datetime</TD></TR></TABLE>> shape=plaintext]
+	User -> Trainer
+	User -> Trainee
+	User -> Admin
+	User -> Session [label="1 ↔ N"]
+	Trainer -> Feedback [label="1 ↔ N"]
+	Session -> Feedback [label="1 ↔ N"]
+	Exercise -> Session [label="1 ↔ N"]
+}
