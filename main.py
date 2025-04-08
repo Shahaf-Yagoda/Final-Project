@@ -237,41 +237,70 @@ def check_lunge_form(image, landmarks):
 
 
 def check_overhead_press_form(image, landmarks, state):
+    """
+    Enhanced overhead press form check that ensures the wrist is
+    actually above the shoulder to count a rep.
+    """
     h, w = image.shape[:2]
     current_time = time.time()
     feedback = []
 
-    # LEFT SIDE
-    shoulder_l = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
-                  landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
-    elbow_l = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
-               landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y]
-    wrist_l = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,
-               landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
-    hip_l = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-             landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-    knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-              landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+    # Helper to check if wrist is above shoulder
+    def is_wrist_above_shoulder(wrist, shoulder):
+        # 'Above' in an image means the wrist y is LESS than the shoulder y
+        return wrist[1] < shoulder[1]
 
-    # RIGHT SIDE
-    shoulder_r = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
-                  landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
-    elbow_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
-               landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
-    wrist_r = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
-               landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
-    hip_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
-             landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
-    knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
-              landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
+    # -- LEFT SIDE KEY POINTS
+    shoulder_l = [
+        landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+        landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y
+    ]
+    elbow_l = [
+        landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
+        landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y
+    ]
+    wrist_l = [
+        landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,
+        landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y
+    ]
+    hip_l = [
+        landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+        landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y
+    ]
+    knee_l = [
+        landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+        landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y
+    ]
 
-    # ANGLES
+    # -- RIGHT SIDE KEY POINTS
+    shoulder_r = [
+        landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
+        landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y
+    ]
+    elbow_r = [
+        landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
+        landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y
+    ]
+    wrist_r = [
+        landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
+        landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y
+    ]
+    hip_r = [
+        landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
+        landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y
+    ]
+    knee_r = [
+        landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
+        landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y
+    ]
+
+    # -- ANGLES
     elbow_angle_l = calculate_angle(shoulder_l, elbow_l, wrist_l)
     elbow_angle_r = calculate_angle(shoulder_r, elbow_r, wrist_r)
     back_angle_l = calculate_angle(shoulder_l, hip_l, knee_l)
     back_angle_r = calculate_angle(shoulder_r, hip_r, knee_r)
 
-    # PHASE DETECTION (for either side)
+    # -- PHASE DETECTION (for overhead press) based on elbow
     def get_phase(elbow_angle):
         if 85 <= elbow_angle <= 95:
             return "bottom"
@@ -285,70 +314,119 @@ def check_overhead_press_form(image, landmarks, state):
     phase_l = get_phase(elbow_angle_l)
     phase_r = get_phase(elbow_angle_r)
 
-    # Select arc color based on phase
+    # -- ARC COLOR BASED ON PHASE & back posture
     def get_arc_color(phase, back_ok=True):
-        if phase == "top" or phase == "bottom":
+        if phase in ["top", "bottom"]:
             return (0, 255, 0) if back_ok else (0, 0, 255)
         elif phase == "transition":
-            return (0, 255, 255)  # yellow
+            return (0, 255, 255)  # yellowish
         else:
-            return (0, 0, 255)
+            return (0, 0, 255)    # invalid => red
 
     back_ok_l = back_angle_l >= 165
     back_ok_r = back_angle_r >= 165
 
-    # DRAW JOINTS
-    draw_joint_angle(image, shoulder_l, elbow_l, wrist_l, elbow_angle_l, 165, 180,
-                     label="Elbow (L): ", override_color=get_arc_color(phase_l, back_ok_l))
-    draw_joint_angle(image, shoulder_r, elbow_r, wrist_r, elbow_angle_r, 165, 180,
-                     label="Elbow (R): ", override_color=get_arc_color(phase_r, back_ok_r))
+    # -- DRAW JOINT ANGLES
+    draw_joint_angle(
+        image, shoulder_l, elbow_l, wrist_l, elbow_angle_l, 165, 180,
+        label="Elbow (L): ", override_color=get_arc_color(phase_l, back_ok_l)
+    )
+    draw_joint_angle(
+        image, shoulder_r, elbow_r, wrist_r, elbow_angle_r, 165, 180,
+        label="Elbow (R): ", override_color=get_arc_color(phase_r, back_ok_r)
+    )
+    draw_joint_angle(
+        image, shoulder_l, hip_l, knee_l, back_angle_l, 165, 180,
+        label="Back (L): ", override_color=(0, 255, 0) if back_ok_l else (0, 0, 255)
+    )
+    draw_joint_angle(
+        image, shoulder_r, hip_r, knee_r, back_angle_r, 165, 180,
+        label="Back (R): ", override_color=(0, 255, 0) if back_ok_r else (0, 0, 255)
+    )
 
-    draw_joint_angle(image, shoulder_l, hip_l, knee_l, back_angle_l, 165, 180,
-                     label="Back (L): ", override_color=(0, 255, 0) if back_ok_l else (0, 0, 255))
-    draw_joint_angle(image, shoulder_r, hip_r, knee_r, back_angle_r, 165, 180,
-                     label="Back (R): ", override_color=(0, 255, 0) if back_ok_r else (0, 0, 255))
-
-    # ❌ FORM WARNINGS
+    # -- ADDITIONAL FORM CHECKS
     if not back_ok_l or not back_ok_r:
-        feedback.append("Warning: Arching lower back")
+        feedback.append("Arching lower back - Keep core tight")
+
+    # Check if wrist is stacked over elbow (roughly in same x-range)
     if abs(wrist_l[0] - elbow_l[0]) > 0.05 or abs(wrist_r[0] - elbow_r[0]) > 0.05:
-        feedback.append("Wrist not stacked over elbow")
+        feedback.append("Wrist not stacked directly above elbow")
+
+    # Check if elbows are not flaring too far from the shoulder
     if abs(elbow_l[0] - shoulder_l[0]) > 0.15 or abs(elbow_r[0] - shoulder_r[0]) > 0.15:
-        feedback.append("Elbows too far from shoulder")
+        feedback.append("Elbows may be flaring - bring them slightly closer")
 
-    # ✅ REPS LOGIC
-    ready_l = phase_l == "bottom" and back_ok_l
-    ready_r = phase_r == "bottom" and back_ok_r
-    extended_l = phase_l == "top"
-    extended_r = phase_r == "top"
+    # -- WRIST-ABOVE-SHOULDER CHECKS
+    wrist_l_above_shoulder = is_wrist_above_shoulder(wrist_l, shoulder_l)
+    wrist_r_above_shoulder = is_wrist_above_shoulder(wrist_r, shoulder_r)
 
+    # If user tries to be in 'top' phase but wrist is not above shoulder, push a warning
+    if phase_l == "top" and not wrist_l_above_shoulder:
+        feedback.append("Left wrist not actually above shoulder in top position")
+    if phase_r == "top" and not wrist_r_above_shoulder:
+        feedback.append("Right wrist not actually above shoulder in top position")
+
+    # -- PHASES + REP LOGIC
+    # We only call it a valid "bottom" if the elbow angle is ~90 AND back is OK.
+    # We only call it a valid "top" if elbow is extended + wrist is truly above the shoulder.
+    ready_l = (phase_l == "bottom" and back_ok_l)
+    ready_r = (phase_r == "bottom" and back_ok_r)
+
+    extended_l = (phase_l == "top" and wrist_l_above_shoulder)
+    extended_r = (phase_r == "top" and wrist_r_above_shoulder)
+
+    # Mark user "ready" if they go to the bottom position with decent form
     if not state["ready"] and (ready_l or ready_r):
         state["ready"] = True
         state["last_message"] = "Ready position detected"
         state["message_timer"] = current_time
 
+    # Once they're "ready," look for them to press upwards.
+    # Only consider we moved "up" if we see a top position with the wrist(s) above the shoulder(s).
     if state["ready"] and state["direction"] != "up" and (extended_l or extended_r):
         state["direction"] = "up"
 
+    # Then once they've gone "up," look for them to return to bottom to complete the rep.
     if state["direction"] == "up" and (ready_l or ready_r):
         state["direction"] = "down"
         state["count"] += 1
         state["last_message"] = f"Rep #{state['count']} completed"
         state["message_timer"] = current_time
 
-    # 🧾 Display feedback
-    cv2.putText(image, f"Reps: {state['count']}", (30, 90),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
+    # -- DRAW REPS & FEEDBACK
+    cv2.putText(
+        image, f"Reps: {state['count']}", (30, 60),
+        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3
+    )
 
-    y_offset = 130
+    # Additional textual info (angles, etc.)
+    y_offset = 100
+    cv2.putText(image, f"Elbow L: {elbow_angle_l:.1f} deg", (30, y_offset),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    y_offset += 25
+    cv2.putText(image, f"Elbow R: {elbow_angle_r:.1f} deg", (30, y_offset),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    y_offset += 25
+    cv2.putText(image, f"Back L : {back_angle_l:.1f} deg", (30, y_offset),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    y_offset += 25
+    cv2.putText(image, f"Back R : {back_angle_r:.1f} deg", (30, y_offset),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    y_offset += 35
+
+    # Show feedback messages line by line
     for msg in feedback:
-        cv2.putText(image, msg, (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+        cv2.putText(image, msg, (30, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         y_offset += 30
 
-    # Persistent message (for rep complete / ready)
+    # Temporary on-screen message for recent events (ready/rep completion)
     if current_time - state.get("message_timer", 0) < 3:
-        cv2.putText(image, state.get("last_message", ""), (30, y_offset),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
+        cv2.putText(
+            image, state.get("last_message", ""), (30, y_offset),
+            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3
+        )
+
 
 
 def check_plank_form(image, landmarks):
