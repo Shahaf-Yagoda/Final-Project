@@ -8,8 +8,6 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 
-
-
 from gtts import gTTS
 from playsound import playsound
 import os
@@ -19,8 +17,10 @@ from threading import Lock
 
 audio_lock = Lock()
 
+
 def speak_async(text):
     threading.Thread(target=speak, args=(text,), daemon=True).start()
+
 
 def speak(text):
     if not audio_lock.acquire(blocking=False):
@@ -38,8 +38,6 @@ def speak(text):
         print("🔴 TTS Error:", e)
     finally:
         audio_lock.release()
-
-
 
 
 ###############################
@@ -283,7 +281,6 @@ def check_overhead_press_form(image, landmarks, state):
     #     speak("This is a test voice message")
     #     state["alert_given"] = True
 
-
     # Helper to check if wrist is above shoulder
     def is_wrist_above_shoulder(wrist, shoulder):
         # 'Above' in an image means the wrist y is LESS than the shoulder y
@@ -339,7 +336,6 @@ def check_overhead_press_form(image, landmarks, state):
     back_angle_l = calculate_angle(shoulder_l, hip_l, knee_l)
     back_angle_r = calculate_angle(shoulder_r, hip_r, knee_r)
 
-    
     # Back form
     back_ok_l = back_angle_l >= 165
     back_ok_r = back_angle_r >= 165
@@ -354,12 +350,10 @@ def check_overhead_press_form(image, landmarks, state):
     # back_ok_l = False   
     # back_ok_r = False
 
-
     # Form feedback collection
     if not back_ok_l or not back_ok_r:
         feedback.append("Arching lower back - Keep core tight")
         print("Feedback collected:", feedback)
-
 
     if abs(wrist_l[0] - elbow_l[0]) > 0.05 or abs(wrist_r[0] - elbow_r[0]) > 0.05:
         feedback.append("Wrist not stacked directly above elbow")
@@ -410,13 +404,17 @@ def check_overhead_press_form(image, landmarks, state):
 
     # Display live angles
     y_offset = 100
-    cv2.putText(image, f"Elbow L: {elbow_angle_l:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Elbow L: {elbow_angle_l:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (255, 255, 255), 2)
     y_offset += 25
-    cv2.putText(image, f"Elbow R: {elbow_angle_r:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Elbow R: {elbow_angle_r:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (255, 255, 255), 2)
     y_offset += 25
-    cv2.putText(image, f"Back L : {back_angle_l:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Back L : {back_angle_l:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (255, 255, 255), 2)
     y_offset += 25
-    cv2.putText(image, f"Back R : {back_angle_r:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Back R : {back_angle_r:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (255, 255, 255), 2)
     y_offset += 35
 
     # Draw feedback messages
@@ -453,9 +451,6 @@ def check_overhead_press_form(image, landmarks, state):
         # Reset so next time we can alert again
         state["incorrect_start_time"] = None
         # Keep last_spoken_msg & last_spoken_time so cooldown works
-
-
-
 
 
 def check_plank_form(image, landmarks):
@@ -515,7 +510,6 @@ def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
     #         conn.close()
 
 
-
 ###############################
 #  5) Main Entry Point        #
 ###############################
@@ -531,8 +525,6 @@ def main(exercise_name):
         "last_spoken_msg": "",
         "last_spoken_time": 0,
     }
-
-
 
     cap = cv2.VideoCapture(0)
     workout_name = exercise_name  # 👈 "lunge" / "press" / "plank" by exercise
@@ -562,8 +554,6 @@ def main(exercise_name):
                     check_overhead_press_form(frame, landmarks, state)
                 elif workout_name == "plank":
                     check_plank_form(frame, landmarks)
-                
-
 
                 # save to database
                 keypoints_data = [{
@@ -587,5 +577,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(exercise_name=args.exercise)
-
-

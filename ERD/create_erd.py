@@ -3,6 +3,7 @@ from graphviz import Digraph
 dot = Digraph(comment='ERD - Training System')
 dot.attr(rankdir='LR', fontsize='20')
 
+
 def add_table(name, fields):
     label = f"<<TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0'>"
     label += f"<TR><TD COLSPAN='1' BGCOLOR='lightblue'><B>{name}</B></TD></TR>"
@@ -10,6 +11,7 @@ def add_table(name, fields):
         label += f"<TR><TD ALIGN='LEFT'>{field}</TD></TR>"
     label += "</TABLE>>"
     dot.node(name, label=label, shape='plaintext')
+
 
 # הגדרת הטבלאות
 add_table('User', [
