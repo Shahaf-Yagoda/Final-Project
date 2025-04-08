@@ -75,16 +75,18 @@ def add_table(name, fields):
     label += "</TABLE>>"
     dot.node(name, label=label, shape='plaintext')
 
-# 🧍‍♂️ User
+
+# 🧍‍♂️ User table
 add_table('User', [
     'user_id: int (PK)',
     'email: string',
-    'role: string',  # 'trainee' | 'trainer' | 'admin'
+    'password: string',        # hashed password
     'registration_date: datetime',
-    'profile_data: json'  # includes name, dob, height, weight etc.
+    'profile_data: json',      # includes name, dob, height, weight, etc.
+    'role: json'               # {role: "trainer", permissions: [...]}
 ])
 
-# 🏋️‍♀️ Training Sessions
+# 🏋️‍♀️ Training Session
 add_table('Session', [
     'session_id: int (PK)',
     'user_id: int (FK)',
@@ -105,7 +107,7 @@ add_table('Exercise', [
     'description: string'
 ])
 
-# 💬 Feedback by trainer or system
+# 💬 Feedback (system or trainer)
 add_table('Feedback', [
     'feedback_id: int (PK)',
     'session_id: int (FK)',
@@ -115,17 +117,18 @@ add_table('Feedback', [
     'system_generated: boolean'
 ])
 
-# 📈 Keypoints or performance snapshots
+# 📈 Keypoints and angles
 add_table('Keypoints', [
     'keypoint_id: int (PK)',
     'session_id: int (FK)',
     'timestamp: datetime',
     'rep_number: int',
-    'keypoints_json: json',   # raw joint positions
-    'angles_json: json',      # derived angles (elbow, back, etc.)
+    'keypoints_json: json',     # raw joints data
+    'angles_json: json',        # calculated angles
     'is_correct: boolean',
     'incorrect_duration: float'
 ])
+
 
 # 🔗 Relationships
 dot.edge('User', 'Session', label='1 ↔ N')
@@ -133,7 +136,7 @@ dot.edge('Session', 'Keypoints', label='1 ↔ N')
 dot.edge('Session', 'Feedback', label='1 ↔ N')
 dot.edge('Exercise', 'Session', label='1 ↔ N')
 
-# 🖼️ Save as PNG and PDF
+# Save the diagram
 dot.render('training_erd_png', format='png', cleanup=True)
 dot.render('training_erd_pdf', format='pdf', cleanup=True)
 
@@ -154,11 +157,12 @@ exercise feedback, session tracking, trainer involvement, and performance analys
 Represents all platform users, whether trainees, trainers, or admins.
 
 Fields:
-- user_id (PK): Unique ID per user
-- email: Email used for login
-- role: One of ['trainee', 'trainer', 'admin']
-- registration_date: Account creation time
-- profile_data (json): Dynamic personal information
+- user_id (PK): Unique identifier for each user
+- email: Email address used for authentication
+- password: Hashed password (never stored in plain text)
+- registration_date: Timestamp when the user registered
+- profile_data (json): Flexible schema for personal info such as name, date of birth, body metrics, etc.
+- role (json): Defines the user's role and permissions in a single structure
 
 Example profile_data:
 {
@@ -169,6 +173,17 @@ Example profile_data:
   "weight_kg": 72,
   "gender": "male"
 }
+
+Example role:
+{
+  "role": "trainer",
+  "permissions": [
+    "view_sessions",
+    "give_feedback",
+    "access_dashboard"
+  ]
+}
+
 
 ──────────────────────────────────────────────
 🏋️‍♀️ Session Table
