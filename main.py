@@ -9,6 +9,39 @@ import os
 from dotenv import load_dotenv
 
 
+
+from gtts import gTTS
+from playsound import playsound
+import os
+import uuid
+import threading
+from threading import Lock
+
+audio_lock = Lock()
+
+def speak_async(text):
+    threading.Thread(target=speak, args=(text,), daemon=True).start()
+
+def speak(text):
+    if not audio_lock.acquire(blocking=False):
+        print(f"[VOICE] Skipping (audio already playing): {text}")
+        return
+
+    try:
+        print(f"[VOICE] Playing: {text}")
+        tts = gTTS(text=text, lang='en')
+        filename = f"/tmp/{uuid.uuid4().hex}.mp3"
+        tts.save(filename)
+        playsound(filename)
+        os.remove(filename)
+    except Exception as e:
+        print("🔴 TTS Error:", e)
+    finally:
+        audio_lock.release()
+
+
+
+
 ###############################
 #  1) Setup MediaPipe Pose    #
 ###############################
@@ -241,9 +274,15 @@ def check_overhead_press_form(image, landmarks, state):
     Enhanced overhead press form check that ensures the wrist is
     actually above the shoulder to count a rep.
     """
+    feedback = []
     h, w = image.shape[:2]
     current_time = time.time()
-    feedback = []
+
+    # feedback.append("TEST: You should hear this.")
+    # if not state.get("alert_given", False):
+    #     speak("This is a test voice message")
+    #     state["alert_given"] = True
+
 
     # Helper to check if wrist is above shoulder
     def is_wrist_above_shoulder(wrist, shoulder):
@@ -300,13 +339,44 @@ def check_overhead_press_form(image, landmarks, state):
     back_angle_l = calculate_angle(shoulder_l, hip_l, knee_l)
     back_angle_r = calculate_angle(shoulder_r, hip_r, knee_r)
 
-    # -- PHASE DETECTION (for overhead press) based on elbow
-    def get_phase(elbow_angle):
-        if 85 <= elbow_angle <= 95:
+    
+    # Back form
+    back_ok_l = back_angle_l >= 165
+    back_ok_r = back_angle_r >= 165
+
+    # Visual joint lines
+    draw_joint_angle(image, shoulder_l, elbow_l, wrist_l, elbow_angle_l, 165, 180, label="Elbow (L): ")
+    draw_joint_angle(image, shoulder_r, elbow_r, wrist_r, elbow_angle_r, 165, 180, label="Elbow (R): ")
+    draw_joint_angle(image, shoulder_l, hip_l, knee_l, back_angle_l, 165, 180, label="Back (L): ")
+    draw_joint_angle(image, shoulder_r, hip_r, knee_r, back_angle_r, 165, 180, label="Back (R): ")
+
+    # Force posture to be considered wrong
+    # back_ok_l = False   
+    # back_ok_r = False
+
+
+    # Form feedback collection
+    if not back_ok_l or not back_ok_r:
+        feedback.append("Arching lower back - Keep core tight")
+        print("Feedback collected:", feedback)
+
+
+    if abs(wrist_l[0] - elbow_l[0]) > 0.05 or abs(wrist_r[0] - elbow_r[0]) > 0.05:
+        feedback.append("Wrist not stacked directly above elbow")
+
+    if abs(elbow_l[0] - shoulder_l[0]) > 0.15 or abs(elbow_r[0] - shoulder_r[0]) > 0.15:
+        feedback.append("Elbows may be flaring - bring them slightly closer")
+
+    wrist_l_above = is_wrist_above_shoulder(wrist_l, shoulder_l)
+    wrist_r_above = is_wrist_above_shoulder(wrist_r, shoulder_r)
+
+    # Phase detection
+    def get_phase(angle):
+        if 85 <= angle <= 95:
             return "bottom"
-        elif elbow_angle > 165:
+        elif angle > 165:
             return "top"
-        elif 95 < elbow_angle < 165:
+        elif 95 < angle < 165:
             return "transition"
         else:
             return "invalid"
@@ -314,118 +384,77 @@ def check_overhead_press_form(image, landmarks, state):
     phase_l = get_phase(elbow_angle_l)
     phase_r = get_phase(elbow_angle_r)
 
-    # -- ARC COLOR BASED ON PHASE & back posture
-    def get_arc_color(phase, back_ok=True):
-        if phase in ["top", "bottom"]:
-            return (0, 255, 0) if back_ok else (0, 0, 255)
-        elif phase == "transition":
-            return (0, 255, 255)  # yellowish
-        else:
-            return (0, 0, 255)    # invalid => red
-
-    back_ok_l = back_angle_l >= 165
-    back_ok_r = back_angle_r >= 165
-
-    # -- DRAW JOINT ANGLES
-    draw_joint_angle(
-        image, shoulder_l, elbow_l, wrist_l, elbow_angle_l, 165, 180,
-        label="Elbow (L): ", override_color=get_arc_color(phase_l, back_ok_l)
-    )
-    draw_joint_angle(
-        image, shoulder_r, elbow_r, wrist_r, elbow_angle_r, 165, 180,
-        label="Elbow (R): ", override_color=get_arc_color(phase_r, back_ok_r)
-    )
-    draw_joint_angle(
-        image, shoulder_l, hip_l, knee_l, back_angle_l, 165, 180,
-        label="Back (L): ", override_color=(0, 255, 0) if back_ok_l else (0, 0, 255)
-    )
-    draw_joint_angle(
-        image, shoulder_r, hip_r, knee_r, back_angle_r, 165, 180,
-        label="Back (R): ", override_color=(0, 255, 0) if back_ok_r else (0, 0, 255)
-    )
-
-    # -- ADDITIONAL FORM CHECKS
-    if not back_ok_l or not back_ok_r:
-        feedback.append("Arching lower back - Keep core tight")
-
-    # Check if wrist is stacked over elbow (roughly in same x-range)
-    if abs(wrist_l[0] - elbow_l[0]) > 0.05 or abs(wrist_r[0] - elbow_r[0]) > 0.05:
-        feedback.append("Wrist not stacked directly above elbow")
-
-    # Check if elbows are not flaring too far from the shoulder
-    if abs(elbow_l[0] - shoulder_l[0]) > 0.15 or abs(elbow_r[0] - shoulder_r[0]) > 0.15:
-        feedback.append("Elbows may be flaring - bring them slightly closer")
-
-    # -- WRIST-ABOVE-SHOULDER CHECKS
-    wrist_l_above_shoulder = is_wrist_above_shoulder(wrist_l, shoulder_l)
-    wrist_r_above_shoulder = is_wrist_above_shoulder(wrist_r, shoulder_r)
-
-    # If user tries to be in 'top' phase but wrist is not above shoulder, push a warning
-    if phase_l == "top" and not wrist_l_above_shoulder:
-        feedback.append("Left wrist not actually above shoulder in top position")
-    if phase_r == "top" and not wrist_r_above_shoulder:
-        feedback.append("Right wrist not actually above shoulder in top position")
-
-    # -- PHASES + REP LOGIC
-    # We only call it a valid "bottom" if the elbow angle is ~90 AND back is OK.
-    # We only call it a valid "top" if elbow is extended + wrist is truly above the shoulder.
     ready_l = (phase_l == "bottom" and back_ok_l)
     ready_r = (phase_r == "bottom" and back_ok_r)
+    extended_l = (phase_l == "top" and wrist_l_above)
+    extended_r = (phase_r == "top" and wrist_r_above)
 
-    extended_l = (phase_l == "top" and wrist_l_above_shoulder)
-    extended_r = (phase_r == "top" and wrist_r_above_shoulder)
-
-    # Mark user "ready" if they go to the bottom position with decent form
+    # Rep logic
     if not state["ready"] and (ready_l or ready_r):
         state["ready"] = True
         state["last_message"] = "Ready position detected"
         state["message_timer"] = current_time
 
-    # Once they're "ready," look for them to press upwards.
-    # Only consider we moved "up" if we see a top position with the wrist(s) above the shoulder(s).
     if state["ready"] and state["direction"] != "up" and (extended_l or extended_r):
         state["direction"] = "up"
 
-    # Then once they've gone "up," look for them to return to bottom to complete the rep.
     if state["direction"] == "up" and (ready_l or ready_r):
         state["direction"] = "down"
         state["count"] += 1
         state["last_message"] = f"Rep #{state['count']} completed"
         state["message_timer"] = current_time
 
-    # -- DRAW REPS & FEEDBACK
-    cv2.putText(
-        image, f"Reps: {state['count']}", (30, 60),
-        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3
-    )
+    # Display rep count
+    cv2.putText(image, f"Reps: {state['count']}", (30, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
 
-    # Additional textual info (angles, etc.)
+    # Display live angles
     y_offset = 100
-    cv2.putText(image, f"Elbow L: {elbow_angle_l:.1f} deg", (30, y_offset),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Elbow L: {elbow_angle_l:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     y_offset += 25
-    cv2.putText(image, f"Elbow R: {elbow_angle_r:.1f} deg", (30, y_offset),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Elbow R: {elbow_angle_r:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     y_offset += 25
-    cv2.putText(image, f"Back L : {back_angle_l:.1f} deg", (30, y_offset),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Back L : {back_angle_l:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     y_offset += 25
-    cv2.putText(image, f"Back R : {back_angle_r:.1f} deg", (30, y_offset),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(image, f"Back R : {back_angle_r:.1f} deg", (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     y_offset += 35
 
-    # Show feedback messages line by line
+    # Draw feedback messages
     for msg in feedback:
-        cv2.putText(image, msg, (30, y_offset),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        cv2.putText(image, msg, (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         y_offset += 30
 
-    # Temporary on-screen message for recent events (ready/rep completion)
+    # Temporary on-screen message
     if current_time - state.get("message_timer", 0) < 3:
-        cv2.putText(
-            image, state.get("last_message", ""), (30, y_offset),
-            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3
-        )
+        cv2.putText(image, state.get("last_message", ""), (30, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
+
+    # 🔊 Real-time audio feedback after bad form > 1 sec
+    is_correct = (len(feedback) == 0)
+
+    if not is_correct:
+        if state.get("incorrect_start_time") is None:
+            state["incorrect_start_time"] = current_time
+        else:
+            elapsed = current_time - state["incorrect_start_time"]
+
+            if elapsed > 1.0:
+                for msg in feedback:
+                    time_since_last = current_time - state.get("last_spoken_time", 0)
+                    cooldown = 5  # seconds between repeating the same message
+
+                    if msg != state.get("last_spoken_msg", "") or time_since_last > cooldown:
+                        speak_async(msg)
+                        state["last_spoken_msg"] = msg
+                        state["last_spoken_time"] = current_time
+                        break  # Speak only one message per cycle
+
+    else:
+        # Reset so next time we can alert again
+        state["incorrect_start_time"] = None
+        # Keep last_spoken_msg & last_spoken_time so cooldown works
+
+
 
 
 
@@ -447,42 +476,43 @@ def check_plank_form(image, landmarks):
 
 
 def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
-    """
-    Inserts keypoints into the 'keypoints' table in the appropriate database (local or cloud).
-    Uses the USE_CLOUD_DB environment variable to determine the target DB.
-    """
-    conn = None
-    cursor = None
+    pass
+    # """
+    # Inserts keypoints into the 'keypoints' table in the appropriate database (local or cloud).
+    # Uses the USE_CLOUD_DB environment variable to determine the target DB.
+    # """
+    # conn = None
+    # cursor = None
 
-    try:
-        load_dotenv(override=True)
-        use_cloud = os.getenv("USE_CLOUD_DB", "false").lower() == "true"  # ✅ convert to boolean
+    # try:
+    #     load_dotenv(override=True)
+    #     use_cloud = os.getenv("USE_CLOUD_DB", "false").lower() == "true"  # ✅ convert to boolean
 
-        conn = get_connection(use_cloud)  # ✅ now passing actual boolean
-        cursor = conn.cursor()
+    #     conn = get_connection(use_cloud)  # ✅ now passing actual boolean
+    #     cursor = conn.cursor()
 
-        keypoints_json = json.dumps(keypoints_data)
-        current_timestamp = datetime.now()
+    #     keypoints_json = json.dumps(keypoints_data)
+    #     current_timestamp = datetime.now()
 
-        insert_query = """
-            INSERT INTO keypoints (workout_id, timestamp, keypoints, workout)
-            VALUES (%s, %s, %s, %s);
-        """
-        cursor.execute(insert_query, (workout_id, current_timestamp, keypoints_json, workout_name))
-        conn.commit()
+    #     insert_query = """
+    #         INSERT INTO keypoints (workout_id, timestamp, keypoints, workout)
+    #         VALUES (%s, %s, %s, %s);
+    #     """
+    #     cursor.execute(insert_query, (workout_id, current_timestamp, keypoints_json, workout_name))
+    #     conn.commit()
 
-        db_type = "Cloud" if use_cloud else "Local"
-        print(f"✅ Keypoints saved successfully to {db_type} DB.")
+    #     db_type = "Cloud" if use_cloud else "Local"
+    #     print(f"✅ Keypoints saved successfully to {db_type} DB.")
 
-    except Exception as e:
-        print("❌ Error inserting keypoints into the database:", e)
-        if conn:
-            conn.rollback()
-    finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+    # except Exception as e:
+    #     print("❌ Error inserting keypoints into the database:", e)
+    #     if conn:
+    #         conn.rollback()
+    # finally:
+    #     if cursor:
+    #         cursor.close()
+    #     if conn:
+    #         conn.close()
 
 
 
@@ -496,8 +526,13 @@ def main(exercise_name):
         "count": 0,
         "last_message": "",
         "message_timer": 0,
-        "feedback": []
+        "incorrect_start_time": None,
+        "alert_given": False,
+        "last_spoken_msg": "",
+        "last_spoken_time": 0,
     }
+
+
 
     cap = cv2.VideoCapture(0)
     workout_name = exercise_name  # 👈 "lunge" / "press" / "plank" by exercise
@@ -527,6 +562,8 @@ def main(exercise_name):
                     check_overhead_press_form(frame, landmarks, state)
                 elif workout_name == "plank":
                     check_plank_form(frame, landmarks)
+                
+
 
                 # save to database
                 keypoints_data = [{
