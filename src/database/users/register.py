@@ -1,7 +1,7 @@
 # users/register.py
 import psycopg2
 import bcrypt
-from database.database_connection import get_connection
+from src.database.database_connection import get_connection
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

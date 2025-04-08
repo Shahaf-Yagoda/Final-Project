@@ -2,7 +2,7 @@
 import psycopg2
 import bcrypt
 from datetime import datetime
-from database.database_connection import get_connection
+from src.database.database_connection import get_connection
 
 def verify_password(plain_pw, hashed_pw):
     return bcrypt.checkpw(plain_pw.encode('utf-8'), hashed_pw.encode('utf-8'))

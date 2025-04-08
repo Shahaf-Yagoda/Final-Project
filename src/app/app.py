@@ -8,14 +8,20 @@ import tempfile
 import time
 import subprocess
 from datetime import datetime
+import subprocess
+subprocess.Popen(["python", "video_streamer.py"])
+
 
 # Import custom modules
 sys.path.insert(0, '../..')
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from database.users.register import register_user
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.database.users.register import register_user
+from src.database.users.login import login_user
+from main import *  # if you're using logic from main
+
 from main import *
 import mediapipe as mp
-from database.users.login import login_user
+
 
 
 # Session state to track navigation
@@ -153,18 +159,20 @@ elif st.session_state.page == "TBD":
 
     ############## Choose excersice #############
 elif st.session_state.page == "LiveExercise":
-    st.title("Live Exercise Tracking")
+    st.title("Live Exercise Tracking (Browser View)")
+    st.markdown("Make sure `video_streamer.py` is running in the background.")
+
     exercise = st.selectbox("Choose exercise", ["press", "lunge", "plank"])
 
     if st.button("Start Live Tracking"):
-        st.success(f"Launching live tracking for: {exercise}")
+        st.success(f"Streaming exercise: {exercise}")
+        st.markdown("🔴 Live stream below:")
 
-        # Construct the command
-        main_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "main.py"))
-        command = f"python {main_script} --exercise {exercise}"
+        # Embed the video stream using an iframe
+        # Inside LiveExercise page
+    url = f"http://localhost:5000?exercise={exercise}"
+    st.components.v1.iframe(url, width=1280, height=720)
 
-        # Run as a subprocess (will open webcam window)
-        subprocess.Popen(command, shell=True)
 
     st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
 
