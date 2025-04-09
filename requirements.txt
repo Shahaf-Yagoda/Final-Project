@@ -23,7 +23,6 @@ defusedxml==0.7.1
 docopt==0.6.2
 dotenv==0.9.9
 entrypoints==0.4
-erdantic==1.0.5
 et_xmlfile==2.0.0
 executing==2.2.0
 fastjsonschema==2.21.1
@@ -32,7 +31,6 @@ flatbuffers==25.2.10
 fonttools==4.56.0
 gitdb==4.0.12
 GitPython==3.1.44
-graphviz==0.20.3
 gTTS==2.5.4
 idna==3.10
 importlib_metadata==8.6.1
