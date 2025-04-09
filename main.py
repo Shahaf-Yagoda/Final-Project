@@ -238,33 +238,106 @@ def draw_joint_angle(image, a, b, c, angle, min_ok, max_ok, label="", override_c
 ###############################
 #  4) Main Checking Function  #
 ###############################
-def check_lunge_form(image, landmarks):
-    # קדמי
-    hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-           landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-    knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-            landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-    ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-             landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
+def check_lunge_form(image, landmarks, state):
+    feedback = []
+    h, w = image.shape[:2]
+    current_time = time.time()
 
-    knee_angle = calculate_angle(hip, knee, ankle)
-    knee_ok = 80 <= knee_angle <= 100
+    # Raw landmark positions
+    left_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
+    right_knee = landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value]
 
-    cv2.putText(image,
-                f"Knee angle: {knee_angle:.1f} => {'OK' if knee_ok else 'NOT OK'}",
-                (30, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if knee_ok else (0, 0, 255), 3)
+    # Decide front leg based on depth
+    front_leg = "left" if left_knee.z < right_knee.z else "right"
+    back_leg = "right" if front_leg == "left" else "left"
 
-    # גב זקוף
-    shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
-                landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
-    back_angle = calculate_angle(shoulder, hip, knee)
-    back_ok = back_angle > 160
+    # Helper
+    def get_point(part, side):
+        lm = getattr(mp_pose.PoseLandmark, f"{side.upper()}_{part.upper()}")
+        return [landmarks[lm.value].x, landmarks[lm.value].y]
 
-    cv2.putText(image,
-                f"Back angle: {back_angle:.1f} => {'OK' if back_ok else 'NOT OK'}",
-                (30, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if back_ok else (0, 0, 255), 3)
+    # Points
+    hip_f = get_point("HIP", front_leg)
+    knee_f = get_point("KNEE", front_leg)
+    ankle_f = get_point("ANKLE", front_leg)
+    foot_f = get_point("FOOT_INDEX", front_leg)
+    shoulder_f = get_point("SHOULDER", front_leg)
+
+    hip_b = get_point("HIP", back_leg)
+    knee_b = get_point("KNEE", back_leg)
+    ankle_b = get_point("ANKLE", back_leg)
+
+    # Angles
+    front_knee_angle = calculate_angle(hip_f, knee_f, ankle_f)
+    back_knee_angle = calculate_angle(hip_b, knee_b, ankle_b)
+    torso_angle = calculate_angle(shoulder_f, hip_f, knee_f)
+    ankle_angle = calculate_angle(knee_f, ankle_f, foot_f)
+
+    # --- Rep Logic ---
+    # Consider "bottom" when front knee is bent deeply
+    if 85 <= front_knee_angle <= 110:
+        if not state.get("ready", False):
+            state["ready"] = True
+            state["direction"] = "down"
+            state["last_message"] = "Lunge down detected"
+            state["message_timer"] = current_time
+    elif front_knee_angle > 160:
+        if state.get("ready") and state.get("direction") == "down":
+            state["count"] += 1
+            state["ready"] = False
+            state["direction"] = "up"
+            state["last_message"] = f"Rep #{state['count']} completed"
+            state["message_timer"] = current_time
+
+    # --- Feedback Rules ---
+    if not (90 <= front_knee_angle <= 110):
+        feedback.append(f"{front_leg.title()} knee angle should be 90°–110°")
+    if not (90 <= back_knee_angle <= 100):
+        feedback.append(f"{back_leg.title()} knee too straight (90°–100° ideal)")
+    if torso_angle < 165:
+        feedback.append("Torso leaning forward (keep upright posture)")
+    if ankle_angle < 20 or ankle_angle > 35:
+        feedback.append("Ankle angle out of range (20°–30° ideal)")
+    if knee_f[0] > foot_f[0]:
+        feedback.append(f"{front_leg.title()} knee passed toes")
+
+    # --- Drawing angles ---
+    draw_joint_angle(image, hip_f, knee_f, ankle_f, front_knee_angle, 90, 110, label=f"{front_leg.title()} Knee:")
+    draw_joint_angle(image, hip_b, knee_b, ankle_b, back_knee_angle, 90, 100, label=f"{back_leg.title()} Knee:")
+    draw_joint_angle(image, shoulder_f, hip_f, knee_f, torso_angle, 165, 180, label="Torso:")
+    draw_joint_angle(image, knee_f, ankle_f, foot_f, ankle_angle, 20, 30, label="Ankle:")
+
+    # --- Draw rep count & messages ---
+    cv2.putText(image, f"Reps: {state['count']}", (30, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
+
+    y_offset = 100
+    for msg in feedback:
+        cv2.putText(image, msg, (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        y_offset += 30
+
+    if current_time - state.get("message_timer", 0) < 3:
+        cv2.putText(image, state.get("last_message", ""), (30, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
+
+    # --- Audio Feedback ---
+    is_correct = (len(feedback) == 0)
+    if not is_correct:
+        if state.get("incorrect_start_time") is None:
+            state["incorrect_start_time"] = current_time
+        else:
+            elapsed = current_time - state["incorrect_start_time"]
+            if elapsed > 1.0:
+                for msg in feedback:
+                    time_since_last = current_time - state.get("last_spoken_time", 0)
+                    cooldown = 5
+                    if msg != state.get("last_spoken_msg", "") or time_since_last > cooldown:
+                        speak_async(msg)
+                        state["last_spoken_msg"] = msg
+                        state["last_spoken_time"] = current_time
+                        break
+    else:
+        state["incorrect_start_time"] = None
 
 
 def check_overhead_press_form(image, landmarks, state):
@@ -453,21 +526,122 @@ def check_overhead_press_form(image, landmarks, state):
         # Keep last_spoken_msg & last_spoken_time so cooldown works
 
 
-def check_plank_form(image, landmarks):
-    shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
-                landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
-    hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-           landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-    ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-             landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
+def check_plank_form(image, landmarks, state):
+    feedback = []
+    h, w = image.shape[:2]
+    current_time = time.time()
 
-    plank_angle = calculate_angle(shoulder, hip, ankle)
-    plank_ok = 165 <= plank_angle <= 180
+    DURATION = state.get("plank_duration_sec", 30)  # ברירת מחדל 30 שניות
 
-    cv2.putText(image,
-                f"Plank Body Line: {plank_angle:.1f} => {'OK' if plank_ok else 'NOT OK'}",
-                (30, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if plank_ok else (0, 0, 255), 3)
+    def get_point(part, side):
+        lm = getattr(mp_pose.PoseLandmark, f"{side.upper()}_{part.upper()}")
+        return [landmarks[lm.value].x, landmarks[lm.value].y]
+
+    # נקודות רלוונטיות
+    shoulder_l = get_point("SHOULDER", "LEFT")
+    hip_l = get_point("HIP", "LEFT")
+    ankle_l = get_point("ANKLE", "LEFT")
+    ear_l = get_point("EAR", "LEFT")
+
+    shoulder_r = get_point("SHOULDER", "RIGHT")
+    hip_r = get_point("HIP", "RIGHT")
+    ankle_r = get_point("ANKLE", "RIGHT")
+    ear_r = get_point("EAR", "RIGHT")
+
+    # חישוב זוויות
+    body_angle_l = calculate_angle(shoulder_l, hip_l, ankle_l)
+    body_angle_r = calculate_angle(shoulder_r, hip_r, ankle_r)
+    neck_angle_l = calculate_angle(ear_l, shoulder_l, hip_l)
+    neck_angle_r = calculate_angle(ear_r, shoulder_r, hip_r)
+
+    # ציור זוויות
+    draw_joint_angle(image, shoulder_l, hip_l, ankle_l, body_angle_l, 165, 180, label="Body (L):")
+    draw_joint_angle(image, shoulder_r, hip_r, ankle_r, body_angle_r, 165, 180, label="Body (R):")
+    draw_joint_angle(image, ear_l, shoulder_l, hip_l, neck_angle_l, 165, 195, label="Neck (L):")
+    draw_joint_angle(image, ear_r, shoulder_r, hip_r, neck_angle_r, 165, 195, label="Neck (R):")
+
+    # בדיקות
+    if body_angle_l < 160 or body_angle_r < 160:
+        feedback.append("Keep your hips up – don't let them sag")
+    if body_angle_l > 185 or body_angle_r > 185:
+        feedback.append("Lower your hips – keep a straight line")
+    if abs(neck_angle_l - 180) > 15 or abs(neck_angle_r - 180) > 15:
+        feedback.append("Keep your neck neutral – look down")
+
+    # תנוחה נכונה
+    is_ready = (
+        165 <= body_angle_l <= 185 and
+        165 <= body_angle_r <= 185 and
+        abs(neck_angle_l - 180) <= 15 and
+        abs(neck_angle_r - 180) <= 15
+    )
+
+    # התחלה
+    if not state.get("ready") and is_ready:
+        state["ready"] = True
+        state["plank_start_time"] = current_time
+        state["last_message"] = "Plank started!"
+        state["message_timer"] = current_time
+
+    elif state.get("ready") and not is_ready:
+        state["ready"] = False
+
+    # ציור טקסט
+    y_offset = 60
+    cv2.putText(image, f"Plank: {'READY' if state['ready'] else 'NOT READY'}", (30, y_offset),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0) if is_ready else (0, 0, 255), 3)
+    y_offset += 40
+
+    for msg in feedback:
+        cv2.putText(image, msg, (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        y_offset += 30
+
+    # טיימר גרפי
+    if state["ready"]:
+        elapsed = int(current_time - state["plank_start_time"])
+        percentage = min(elapsed / DURATION, 1.0)
+        angle = int(360 * percentage)
+
+        # צבעים
+        if percentage < 0.8:
+            color = (0, 255, 0)       # ירוק
+        elif percentage < 1.0:
+            color = (0, 165, 255)     # כתום
+        else:
+            color = (0, 0, 255)       # אדום
+
+        # ציור מעגל (progress circle)
+        center = (w - 100, 100)
+        radius = 50
+        thickness = 10
+        cv2.ellipse(image, center, (radius, radius), -90, 0, angle, color, thickness)
+        cv2.circle(image, center, radius - 15, (0, 0, 0), -1)
+        cv2.putText(image, f"{elapsed}s", (center[0] - 20, center[1] + 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+    # הודעה זמנית
+    if current_time - state.get("message_timer", 0) < 3:
+        cv2.putText(image, state.get("last_message", ""), (30, y_offset + 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
+
+    # משוב קולי
+    is_correct = len(feedback) == 0
+    if not is_correct:
+        if state.get("incorrect_start_time") is None:
+            state["incorrect_start_time"] = current_time
+        else:
+            elapsed_err = current_time - state["incorrect_start_time"]
+            if elapsed_err > 1.0:
+                for msg in feedback:
+                    time_since_last = current_time - state.get("last_spoken_time", 0)
+                    cooldown = 5
+                    if msg != state.get("last_spoken_msg", "") or time_since_last > cooldown:
+                        speak_async(msg)
+                        state["last_spoken_msg"] = msg
+                        state["last_spoken_time"] = current_time
+                        break
+    else:
+        state["incorrect_start_time"] = None
 
 
 def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
@@ -524,6 +698,9 @@ def main(exercise_name):
         "alert_given": False,
         "last_spoken_msg": "",
         "last_spoken_time": 0,
+        "plank_start_time": 0,
+        "plank_duration_sec": 30  # לדוגמה
+
     }
 
     cap = cv2.VideoCapture(0)
@@ -549,11 +726,11 @@ def main(exercise_name):
 
                 # choose excercise 
                 if workout_name == "lunge":
-                    check_lunge_form(frame, landmarks)
+                    check_lunge_form(frame, landmarks, state)
                 elif workout_name == "press":
                     check_overhead_press_form(frame, landmarks, state)
                 elif workout_name == "plank":
-                    check_plank_form(frame, landmarks)
+                    check_plank_form(frame, landmarks, state)
 
                 # save to database
                 keypoints_data = [{
@@ -573,7 +750,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exercise", type=str, default="press", help="Exercise to perform (press, lunge, plank)")
+    parser.add_argument("--exercise", type=str, default="plank", help="Exercise to perform (press, lunge, plank)")
     args = parser.parse_args()
 
     main(exercise_name=args.exercise)
