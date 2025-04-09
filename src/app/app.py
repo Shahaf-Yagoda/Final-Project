@@ -10,7 +10,8 @@ import subprocess
 from datetime import datetime
 import subprocess
 subprocess.Popen(["python", "video_streamer.py"])
-
+import mediapipe as mp
+import base64
 
 # Import custom modules
 sys.path.insert(0, '../..')
@@ -19,33 +20,83 @@ from src.database.users.register import register_user
 from src.database.users.login import login_user
 from main import *  # if you're using logic from main
 
-from main import *
-import mediapipe as mp
+
+
+def get_base64_image(image_path):
+    with open(image_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+image_path = os.path.join(os.path.dirname(__file__), "../assets/background.jpg")
+base64_image = get_base64_image(image_path)
+
+background_css = f"""
+<style>
+body::before {{
+    content: "";
+    background-image: url("data:image/jpeg;base64,{base64_image}");
+    background-size: cover;
+    background-position: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    opacity: 0.25;
+}}
+</style>
+"""
+st.markdown(background_css, unsafe_allow_html=True)
+
+# Load custom CSS
+css_path = os.path.join(os.path.dirname(__file__), "style.css")
+with open(css_path) as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 
 
 # Session state to track navigation
 if "page" not in st.session_state:
     st.session_state.page = "Home"
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
 
 def set_page(page_name):
     st.session_state.page = page_name
 
+
 # Main page
 if st.session_state.page == "Home":
     st.title("Welcome to Right Motion")
-    st.subheader("Choose an option:")
 
-    col1, col2 , col3= st.columns(3)
-    with col1:
-        st.button("🔐 Register", on_click=set_page, args=("Register",))
-        st.button("📹 Analyze Video", on_click=set_page, args=("Analyze",))
-    with col2:
-        st.button("🔑 Log In", on_click=set_page, args=("Login",))
-        st.button("🧩 TBD", on_click=set_page, args=("TBD",))
-    with col3:
-        st.button("🏃 Live Exercise", on_click=set_page, args=("LiveExercise",))
-        st.button("🏃 TBD", on_click=set_page, args=("TBD",))
+    if not st.session_state.logged_in:
+        st.subheader("Please log in or register to continue.")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.button("🔐 Register", on_click=set_page, args=("Register",))
+        with col2:
+            st.button("🔑 Log In", on_click=set_page, args=("Login",))
+    else:
+        st.success(f"Logged in as user #{st.session_state.user_id}")
+        st.subheader("Choose an option:")
+        col1, col2 , col3 = st.columns(3)
+        with col1:
+            st.button("📹 Analyze Video", on_click=set_page, args=("Analyze",))
+        with col2:
+            st.button("🏃 Live Exercise", on_click=set_page, args=("LiveExercise",))
+        with col3:
+            st.button("🧩 TBD", on_click=set_page, args=("TBD",))
+        st.button("🚪 Log Out", on_click=lambda: logout())
+    def logout():
+        st.session_state.logged_in = False
+        st.session_state.user_id = None
+        st.session_state.page = "Home"
+
+
+
 
 # Register Page
 elif st.session_state.page == "Register":
@@ -147,32 +198,44 @@ elif st.session_state.page == "Login":
         user_id, error = login_user(username, password)
 
         if user_id:
+            st.session_state.logged_in = True
+            st.session_state.user_id = user_id
             st.success(f"Login successful! Welcome, user #{user_id}.")
+            st.session_state.page = "Home"
+            st.rerun()
         else:
             st.error(error)
 
     st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
 
+
 elif st.session_state.page == "TBD":
-    st.title("This feature is coming soon!")
-    st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
+        if not st.session_state.logged_in:
+            st.warning("Please log in to access this page.")
+            st.button("🔑 Go to Login", on_click=set_page, args=("Login",))
+        else:
+            st.title("This feature is coming soon!")
+            st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
 
     ############## Choose excersice #############
 elif st.session_state.page == "LiveExercise":
-    st.title("Live Exercise Tracking (Browser View)")
-    st.markdown("Make sure `video_streamer.py` is running in the background.")
+        if not st.session_state.logged_in:
+            st.warning("Please log in to access this page.")
+            st.button("🔑 Go to Login", on_click=set_page, args=("Login",))
+        else:
+            st.title("Live Exercise Tracking (Browser View)")
+            st.markdown("Make sure `video_streamer.py` is running in the background.")
 
-    exercise = st.selectbox("Choose exercise", ["press", "lunge", "plank"])
+            exercise = st.selectbox("Choose exercise", ["press", "lunge", "plank"])
 
-    if st.button("Start Live Tracking"):
-        st.success(f"Streaming exercise: {exercise}")
-        st.markdown("🔴 Live stream below:")
+        if st.button("Start Live Tracking"):
+            st.success(f"Streaming exercise: {exercise}")
+            st.markdown("🔴 Live stream below:")
 
-        # Embed the video stream using an iframe
-        # Inside LiveExercise page
-    url = f"http://localhost:5000?exercise={exercise}"
-    st.components.v1.iframe(url, width=1280, height=720)
+            # Embed the video stream using an iframe
+            # Inside LiveExercise page
+        url = f"http://localhost:5000?exercise={exercise}"
+        st.components.v1.iframe(url, width=1280, height=720)
 
 
-    st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
-
+        st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
