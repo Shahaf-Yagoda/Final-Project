@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+html, body, [class*="st-"] {
+    font-family: 'Inter', sans-serif;
+    color: #1f2937;
+    background-color: transparent;
+}
+
+/* Main content box */
+section.main {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 1rem;
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 900px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+/* Background will still be injected from app.py */
+
+/* Buttons */
+.stButton>button {
+    background-color: #60a5fa !important;
+    color: white !important;
+    border: none;
+    padding: 0.75rem 1.75rem;
+    border-radius: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 1rem auto;
+    display: block;
+    transition: background-color 0.3s ease;
+}
+
+.stButton>button:hover {
+    background-color: #3b82f6 !important;
+}
+
+/* Input fields */
+.stTextInput>div>input,
+.stTextArea>div>textarea,
+.stSelectbox>div {
+    border-radius: 0.5rem;
+    padding: 0.6rem;
+    border: 1px solid #d1d5db;
+    background-color: #f0f9ff;
+    font-size: 1rem;
+}
+
+/* Headings */
+h1 {
+    color: #1d4ed8;
+    font-size: 2.25rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+h2, h3 {
+    color: #2563eb;
+    font-weight: 600;
+    margin-top: 1rem;
+    text-align: center;
+}
+
+/* Styled subheaders */
+.stMarkdown h2 {
+    color: #1e3a8a;
+    font-size: 1.5rem;
+    font-weight: 600;
+    border-bottom: 2px solid #93c5fd;
+    padding-bottom: 0.25rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+/* Fix spacing in containers */
+.stContainer {
+    padding-top: 2rem;
+}
+
+/* === Style st.success, st.error, st.warning === */
+
+/* Success */
+div[role="alert"] {
+    border-left: 6px solid #10b981; /* green-500 */
+    background-color: #ecfdf5;      /* green-50 */
+    color: #065f46;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+
+}
+
+/* Error */
+div[role="alert"]:has(svg[data-testid="stIcon-error"]) {
+    border-left: 6px solid #ef4444; /* red-500 */
+    background-color: #fef2f2;      /* red-50 */
+    color: #991b1b;
+}
+
+/* Warning */
+div[role="alert"]:has(svg[data-testid="stIcon-warning"]) {
+    border-left: 6px solid #f59e0b; /* amber-500 */
+    background-color: #fffbeb;      /* amber-50 */
+    color: #78350f;
+}
+
+/* Info */
+div[role="alert"]:has(svg[data-testid="stIcon-info"]) {
+    border-left: 6px solid #3b82f6; /* blue-500 */
+    background-color: #eff6ff;      /* blue-50 */
+    color: #1e40af;
+}
+
