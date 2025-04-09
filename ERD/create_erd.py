@@ -97,7 +97,7 @@ add_table('Session', [
     'exercise_counter: int',
     'feedback_count: int',
     'performance_score: float',
-    'video_url: string'
+    'video_path: string'
 ])
 
 # 📋 Exercise catalog
@@ -199,7 +199,7 @@ Fields:
 - exercise_counter: Total reps done
 - feedback_count: System/trainer feedbacks
 - performance_score: Numeric score (e.g., 0.0 to 100.0)
-- video_url: Location of recorded session (e.g., cloud bucket path)
+- video_path: Location of recorded session (e.g., cloud bucket path)
 
 ──────────────────────────────────────────────
 📋 Exercise Table
