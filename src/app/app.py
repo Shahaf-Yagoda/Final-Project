@@ -12,6 +12,7 @@ import subprocess
 subprocess.Popen(["python", "video_streamer.py"])
 import mediapipe as mp
 import base64
+from streamlit_option_menu import option_menu
 
 # Import custom modules
 sys.path.insert(0, '../..')
@@ -219,23 +220,35 @@ elif st.session_state.page == "TBD":
 
     ############## Choose excersice #############
 elif st.session_state.page == "LiveExercise":
-        if not st.session_state.logged_in:
-            st.warning("Please log in to access this page.")
-            st.button("🔑 Go to Login", on_click=set_page, args=("Login",))
-        else:
-            st.title("Live Exercise Tracking (Browser View)")
-            st.markdown("Make sure `video_streamer.py` is running in the background.")
+    if not st.session_state.get("logged_in", False):
+        st.warning("Please log in to access this page.")
+        st.button("🔑 Go to Login", on_click=set_page, args=("Login",))
+    else:
+        st.title("Live Exercise Analyze")
 
-            exercise = st.selectbox("Choose exercise", ["press", "lunge", "plank"])
+        # Dropdown with stored selection
+        exercise = option_menu(
+            menu_title=None,
+            options=["press", "lunge", "plank"],
+            icons=["1-circle-fill", "2-circle-fill", "3-circle-fill"],
+            orientation="horizontal",
+        )
 
+        # Start live tracking
         if st.button("Start Live Tracking"):
-            st.success(f"Streaming exercise: {exercise}")
-            st.markdown("🔴 Live stream below:")
+            st.session_state["start_streaming"] = True
+            st.session_state["selected_exercise"] = exercise
 
-            # Embed the video stream using an iframe
-            # Inside LiveExercise page
-        url = f"http://localhost:5000?exercise={exercise}"
-        st.components.v1.iframe(url, width=1280, height=720)
+        # Display stream if tracking was started
+        if st.session_state.get("start_streaming", False):
+            selected = st.session_state.get("selected_exercise", "press")
+            st.success(f"Streaming exercise: {selected}")
 
+            url = f"http://localhost:5000?exercise={selected}"
+            st.components.v1.iframe(url, width=1280, height=720)
 
-        st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
+        # Back button — resets stream state
+        if st.button("⬅️ Back to Home"):
+            st.session_state.page = "Home"
+            st.session_state["start_streaming"] = False
+            st.session_state["selected_exercise"] = None
