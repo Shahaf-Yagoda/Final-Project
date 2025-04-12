@@ -81,7 +81,7 @@ if st.session_state.page == "Home":
         with col2:
             st.button("🔑 Log In", on_click=set_page, args=("Login",))
     else:
-        st.success(f"Logged in as user #{st.session_state.user_id}")
+        st.success(f"Logged in as {st.session_state.username}")
         st.subheader("Choose an option:")
         col1, col2 , col3 = st.columns(3)
         with col1:
@@ -103,20 +103,28 @@ if st.session_state.page == "Home":
 elif st.session_state.page == "Register":
     st.title("User Registration")
 
-    name = st.text_input("Name")
     email = st.text_input("Email")
-    dob = st.date_input("Date of Birth")
-    role = st.selectbox("Role", ["user", "admin", "coach"])
-    parent = st.text_input("Parent ID (optional)")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
+    # Profile fields
+    name = st.text_input("Full Name")
+    dob = st.date_input("Date of Birth")
+    height = st.number_input("Height (cm)", min_value=0)
+    weight = st.number_input("Weight (kg)", min_value=0)
+    role = st.selectbox("Role", ["user", "coach", "admin"])
+
     if st.button("Register"):
-        if not username or not password:
-            st.error("Username and password are required.")
+        if not username or not password or not email:
+            st.error("Email, username, and password are required.")
         else:
-            parent_id = int(parent) if parent else None
-            result = register_user(name, email, dob, role, parent_id, username, password)
+            profile_data = {
+                "name": name,
+                "date_of_birth": dob.isoformat(),
+                "height_cm": height,
+                "weight_kg": weight
+            }
+            result = register_user(email, username, password, profile_data, role)
 
             if isinstance(result, int):
                 st.success(f"User registered with ID: {result}")
@@ -192,22 +200,25 @@ elif st.session_state.page == "Analyze":
 elif st.session_state.page == "Login":
     st.title("User Login")
 
-    username = st.text_input("Username")
+    identifier = st.text_input("Email or Username")
     password = st.text_input("Password", type="password")
 
     if st.button("Log In"):
-        user_id, error = login_user(username, password)
+        user_id, username, error = login_user(identifier, password)
 
         if user_id:
             st.session_state.logged_in = True
             st.session_state.user_id = user_id
-            st.success(f"Login successful! Welcome, user #{user_id}.")
+            st.session_state.username = username
+            st.success(f"Login successful! Welcome, {username}.")
             st.session_state.page = "Home"
             st.rerun()
         else:
             st.error(error)
 
     st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
+
+
 
 
 elif st.session_state.page == "TBD":
@@ -229,7 +240,7 @@ elif st.session_state.page == "LiveExercise":
         # Dropdown with stored selection
         exercise = option_menu(
             menu_title=None,
-            options=["press", "lunge", "plank"],
+            options=["lunge", "press", "plank"],
             icons=["1-circle-fill", "2-circle-fill", "3-circle-fill"],
             orientation="horizontal",
         )
@@ -238,17 +249,47 @@ elif st.session_state.page == "LiveExercise":
         if st.button("Start Live Tracking"):
             st.session_state["start_streaming"] = True
             st.session_state["selected_exercise"] = exercise
+            st.session_state["start_time"] = datetime.now().isoformat()
+            st.session_state["rep_count"] = 0  # default
 
         # Display stream if tracking was started
         if st.session_state.get("start_streaming", False):
             selected = st.session_state.get("selected_exercise", "press")
             st.success(f"Streaming exercise: {selected}")
 
-            url = f"http://localhost:5000?exercise={selected}"
+            user_id = st.session_state.get("user_id")
+            url = f"http://localhost:5000?exercise={selected}&user_id={user_id}"
             st.components.v1.iframe(url, width=1280, height=720)
 
-        # Back button — resets stream state
-        if st.button("⬅️ Back to Home"):
+            if st.button("🛑 Stop Live Tracking"):
+                st.session_state["start_streaming"] = False
+                st.session_state["stop_time"] = datetime.now().isoformat()
+                try:
+                    with open(f"/tmp/reps_{user_id}.txt") as f:
+                        reps = int(f.read().strip())
+                        os.remove(f"/tmp/reps_{user_id}.txt")
+                except:
+                    reps = 0  # fallback if file not found
+
+                start = datetime.fromisoformat(st.session_state["start_time"])
+                end = datetime.fromisoformat(st.session_state["stop_time"])
+                reps = st.session_state.get("rep_count", 0)
+
+                save_session_to_db(
+                    user_id=user_id,
+                    exercise_name=selected,
+                    start_time=start,
+                    end_time=end,
+                    reps_count=reps
+                )
+
+                st.success("✅ Session saved to the database.")
+        # End of LiveExercise logic
+        if st.button("⬅️ Back to Home", key="back_home_live"):
             st.session_state.page = "Home"
             st.session_state["start_streaming"] = False
             st.session_state["selected_exercise"] = None
+            for key in ["start_time", "stop_time", "rep_count"]:
+                st.session_state.pop(key, None)
+            st.rerun()  # 🔄 force rerun so Home page is fresh
+

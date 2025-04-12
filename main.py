@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-
+import streamlit as st
 from gtts import gTTS
 from playsound import playsound
 import os
@@ -684,27 +684,71 @@ def save_keypoints_to_db(keypoints_data, workout_id, workout_name):
     #         conn.close()
 
 
+def save_session_to_db(user_id, exercise_name, start_time, end_time, reps_count, video_path=None):
+    try:
+        print("💾 Saving session to DB...")
+        print(f"🔍 user_id={user_id}, exercise_name={exercise_name}, reps={reps_count}")
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Step 1: Get exercise_id
+        cursor.execute("SELECT exercise_id FROM Exercise WHERE name = %s", (exercise_name,))
+        result = cursor.fetchone()
+        if not result:
+            print(f"❌ No exercise found with name: {exercise_name}")
+            return
+        exercise_id = result[0]
+
+        # Step 2: Calculate duration
+        duration = int((end_time - start_time).total_seconds())
+
+        # Step 3: Insert session
+        insert_query = """
+            INSERT INTO Session (
+                user_id, exercise_id, start_time, end_time,
+                duration_sec, reps_count, feedback_count,
+                performance_score, video_path
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(insert_query, (
+            user_id, exercise_id, start_time, end_time,
+            duration, reps_count, 0, 0.0, video_path
+        ))
+
+        conn.commit()
+        print("✅ Session saved successfully to the database.")
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("❌ Error while saving session to database:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+
+
 ###############################
 #  5) Main Entry Point        #
 ###############################
-def main(exercise_name):
+def main(exercise_name,user_id):
+    print("👤 User ID:", user_id)
+    user_id = st.session_state.get("user_id", 1)  # 🔁 fallback for testing
     state = {
         "ready": False,
         "direction": None,
-        "count": 0,
-        "last_message": "",
-        "message_timer": 0,
-        "incorrect_start_time": None,
-        "alert_given": False,
-        "last_spoken_msg": "",
-        "last_spoken_time": 0,
-        "plank_start_time": 0,
-        "plank_duration_sec": 30  # לדוגמה
-
+        "count": 0
     }
 
     cap = cv2.VideoCapture(0)
-    workout_name = exercise_name  # 👈 "lunge" / "press" / "plank" by exercise
+    workout_name = exercise_name
+    start_time = datetime.now()  # 🟢 Session start
     with mp_pose.Pose(
             static_image_mode=False,
             model_complexity=1,
@@ -743,6 +787,15 @@ def main(exercise_name):
                 break
 
         cap.release()
+        end_time = datetime.now()
+        save_session_to_db(
+            user_id=user_id,
+            exercise_name=workout_name,
+            start_time=start_time,
+            end_time=end_time,
+            reps_count=state["count"]
+    )
+
         cv2.destroyAllWindows()
 
 
@@ -750,7 +803,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exercise", type=str, default="plank", help="Exercise to perform (press, lunge, plank)")
+    parser.add_argument("--exercise", type=str, required=True)
+    parser.add_argument("--user_id", type=int, required=True)
     args = parser.parse_args()
 
-    main(exercise_name=args.exercise)
+    main(exercise_name=args.exercise, user_id=args.user_id)

@@ -9,6 +9,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 import sys
 import os
+import subprocess
+
 # ✅ Add both project root and src to sys.path
 current_dir = os.path.dirname(__file__)
 project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
@@ -25,6 +27,8 @@ from main import (
 
 from database.database_connection import get_connection
 
+from main import save_session_to_db
+from datetime import datetime
 
 ###############################
 # Flask + Camera Setup
@@ -42,7 +46,9 @@ pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_t
 ###############################
 # Stream Generator
 ###############################
-def generate_frames(exercise="press"):
+from datetime import datetime
+
+def generate_frames(exercise="press", user_id=1):
     # State for rep counting logic
     state = {
         "ready": False,
@@ -73,14 +79,14 @@ def generate_frames(exercise="press"):
             elif exercise == "plank":
                 check_plank_form(frame, landmarks)
 
-            # Save keypoints to DB
-            keypoints_data = [{
-                "x": lm.x, "y": lm.y, "z": lm.z, "visibility": lm.visibility
-            } for lm in landmarks]
+            # Save rep count to temp file
+            try:
+                with open(f"/tmp/reps_{user_id}.txt", "w") as f:
+                    f.write(str(state["count"]))
+            except Exception as e:
+                print(f"⚠️ Failed to write rep count: {e}")
 
-            save_keypoints_to_db(keypoints_data, workout_id=1, workout_name=exercise)
-
-        # Add exit hint
+        # Add overlay text
         cv2.putText(frame, "Live Streaming... Close tab to stop", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
@@ -91,14 +97,18 @@ def generate_frames(exercise="press"):
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 
+
 ###############################
 # Flask Route
 ###############################
 @app.route('/')
 def video_feed():
-    exercise = request.args.get("exercise", "press")  # default is "press"
-    return Response(generate_frames(exercise),
+    exercise = request.args.get("exercise", "press")
+    user_id = int(request.args.get("user_id", 1))
+
+    return Response(generate_frames(exercise, user_id),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
 
 
 ###############################
