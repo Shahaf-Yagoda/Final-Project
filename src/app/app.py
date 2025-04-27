@@ -55,7 +55,8 @@ css_path = os.path.join(os.path.dirname(__file__), "style.css")
 with open(css_path) as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-
+# Set this variable based on your app's current flow/page
+is_analyze_video_flow = st.session_state.get('is_analyze_video_flow', False)
 
 # Session state to track navigation
 if "page" not in st.session_state:
@@ -136,6 +137,8 @@ elif st.session_state.page == "Register":
 
 # Analyze Video Page (your original logic)
 elif st.session_state.page == "Analyze":
+    st.session_state.is_analyze_video_flow = True
+
     st.title("Right Motion Video Analyzer")
     st.header("Upload a video to analyze")
     video_file = st.file_uploader("Choose a video file", type=["mp4", "avi"])
@@ -250,7 +253,7 @@ elif st.session_state.page == "LiveExercise":
             st.session_state["start_streaming"] = True
             st.session_state["selected_exercise"] = exercise
             st.session_state["start_time"] = datetime.now().isoformat()
-            st.session_state["rep_count"] = 0  # default
+            st.session_state["reps_count"] = 0  # default
 
         # Display stream if tracking was started
         if st.session_state.get("start_streaming", False):
@@ -269,11 +272,12 @@ elif st.session_state.page == "LiveExercise":
                         reps = int(f.read().strip())
                         os.remove(f"/tmp/reps_{user_id}.txt")
                 except:
-                    reps = 0  # fallback if file not found
+                    reps = 234  # fallback if file not found
 
                 start = datetime.fromisoformat(st.session_state["start_time"])
                 end = datetime.fromisoformat(st.session_state["stop_time"])
-                reps = st.session_state.get("rep_count", 0)
+                print(f"#########repssssss={reps}")
+                #reps = st.session_state.get("reps_count",0)
 
                 save_session_to_db(
                     user_id=user_id,
@@ -289,7 +293,7 @@ elif st.session_state.page == "LiveExercise":
             st.session_state.page = "Home"
             st.session_state["start_streaming"] = False
             st.session_state["selected_exercise"] = None
-            for key in ["start_time", "stop_time", "rep_count"]:
+            for key in ["start_time", "stop_time", "reps_count"]:
                 st.session_state.pop(key, None)
             st.rerun()  # 🔄 force rerun so Home page is fresh
 
