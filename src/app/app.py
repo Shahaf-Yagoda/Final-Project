@@ -1,4 +1,3 @@
-# gui/app.py
 import streamlit as st
 import sys
 import os
@@ -9,19 +8,37 @@ import time
 import subprocess
 from datetime import datetime
 import subprocess
-subprocess.Popen(["python", "video_streamer.py"])
 import mediapipe as mp
 import base64
 from streamlit_option_menu import option_menu
+import socket
+
+def is_port_open(port):
+    """
+    Check if a local port is already open (e.g., used by Flask).
+    Returns True if port is in use.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
+
+# Run video_streamer.py only if not already running
+if not is_port_open(5000) and "video_streamer_started" not in st.session_state:
+    video_streamer_path = os.path.join(os.path.dirname(__file__), "video_streamer.py")
+
+    try:
+        subprocess.Popen(["python", video_streamer_path])
+        st.session_state["video_streamer_started"] = True
+        print("✅ video_streamer.py started.")
+    except Exception as e:
+        print("❌ Failed to start video_streamer.py:", e)
+
 
 # Import custom modules
 sys.path.insert(0, '../..')
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.database.users.register import register_user
 from src.database.users.login import login_user
-from main import *  # if you're using logic from main
-
-
 
 def get_base64_image(image_path):
     with open(image_path, "rb") as f:

@@ -8,10 +8,8 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 import sys
-import os
-import subprocess
 
-# ✅ Add both project root and src to sys.path
+# Set up paths
 current_dir = os.path.dirname(__file__)
 project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
 src_path = os.path.join(project_root, "src")
@@ -19,16 +17,15 @@ src_path = os.path.join(project_root, "src")
 sys.path.insert(0, project_root)
 sys.path.insert(0, src_path)
 
-# ✅ Now you can import correctly
-from main import (
-    calculate_angle, check_overhead_press_form, check_lunge_form,
-    check_plank_form, save_keypoints_to_db
+# Imports
+from src.processing.forms_check import (
+    check_lunge_form,
+    check_overhead_press_form,
+    check_plank_form
 )
-
+from src.processing.utils import calculate_angle
 from database.database_connection import get_connection
 
-from main import save_session_to_db
-from datetime import datetime
 
 ###############################
 # Flask + Camera Setup
@@ -75,9 +72,9 @@ def generate_frames(exercise="press", user_id=1):
             if exercise == "press":
                 check_overhead_press_form(frame, landmarks, state)
             elif exercise == "lunge":
-                check_lunge_form(frame, landmarks)
+                check_lunge_form(frame, landmarks, state)
             elif exercise == "plank":
-                check_plank_form(frame, landmarks)
+                check_plank_form(frame, landmarks, state)
 
             # Save rep count to temp file
             try:

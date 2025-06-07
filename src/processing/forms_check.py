@@ -2,7 +2,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from src.processing.utils import calculate_angle, draw_joint_angle
+from src.processing.utils import calculate_angle, draw_joint_angle, distance_2d
 import time
 from src.processing.feedback import speak_async, speak
 
@@ -560,3 +560,42 @@ def check_plank_form(image, landmarks, state):
                         break
     else:
         state["incorrect_start_time"] = None
+
+def check_form(exercise_name, image, landmarks, state):
+    """
+    Routes to the appropriate form-checking function based on the exercise name.
+
+    Returns:
+        feedback (list of strings), reps_count (int)
+    """
+    if exercise_name == "lunge":
+        return check_lunge_form(image, landmarks, state)
+    elif exercise_name == "press":
+        return check_overhead_press_form(image, landmarks, state)
+    elif exercise_name == "plank":
+        return check_plank_form(image, landmarks, state)
+    else:
+        return [f"Unknown exercise: {exercise_name}"], state.get("count", 0)
+
+
+def init_state(exercise_name):
+    """
+    Initializes and returns a default state dictionary for the given exercise.
+    This ensures all needed keys exist and are isolated per exercise.
+    """
+    base = {
+        "ready": False,
+        "direction": None,
+        "count": 0,
+        "last_message": "",
+        "message_timer": 0,
+        "incorrect_start_time": None,
+        "last_spoken_time": 0,
+        "last_spoken_msg": "",
+    }
+
+    if exercise_name == "plank":
+        base["plank_duration_sec"] = 30
+        base["plank_start_time"] = None
+
+    return base
