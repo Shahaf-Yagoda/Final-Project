@@ -1,0 +1,54 @@
+.
+├── __pycache__
+│   └── run2.cpython-311.pyc
+├── .env
+├── .gitignore
+├── .idea
+│   ├── Final-Project.iml
+│   ├── inspectionProfiles
+│   │   └── profiles_settings.xml
+│   ├── misc.xml
+│   ├── modules.xml
+│   ├── vcs.xml
+│   └── workspace.xml
+├── Calibration.py
+├── chessboard.png
+├── create_chessboard.py
+├── ERD
+│   ├── create_erd.py
+│   ├── README.MD
+│   ├── training_erd
+│   ├── training_erd_pdf.pdf
+│   ├── training_erd_png.png
+│   └── training_erd.png
+├── main.py
+├── project_structure.txt
+├── README.md
+├── requirements.txt
+├── run.py
+└── src
+    ├── .DS_Store
+    ├── app
+    │   ├── app.py
+    │   ├── style.css
+    │   └── video_streamer.py
+    ├── assets
+    │   ├── background.jpg
+    │   └── images.jpeg
+    ├── database
+    │   ├── __pycache__
+    │   │   └── database_connection.cpython-311.pyc
+    │   ├── database_connection.py
+    │   ├── test_db.py
+    │   └── users
+    │       ├── login.py
+    │       └── register.py
+    ├── processing
+    │   ├── feedback.py
+    │   ├── forms_check.py
+    │   └── utils.py
+    └── users
+        └── __pycache__
+            └── register.cpython-39.pyc
+
+14 directories, 38 files

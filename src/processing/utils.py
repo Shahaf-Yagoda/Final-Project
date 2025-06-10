@@ -66,7 +66,7 @@ def draw_joint_angle(image, a, b, c, angle, min_ok, max_ok, label="", override_c
     cv2.line(image, pt_a, pt_b, color, 4)
     cv2.line(image, pt_b, pt_c, color, 4)
 
-    text = f"{label}{angle:.1f}°"
+    text = f"{label}{angle:.1f} deg"
     (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
 
     cv2.rectangle(image,
