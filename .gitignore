@@ -1,1 +1,7 @@
 .env
+# Video files
+videos/
+*.mp4
+*.avi
+*.mov
+*.mkv
