@@ -375,8 +375,10 @@ elif st.session_state.page == "Analyze":
                         progress_bar.progress(30)
                         status_text.text("🤖 Initializing AI pose detection...")
                         
-                        mp_pose = mp.solutions.pose
-                        pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5)
+                        from src.processing.pose_detector import PoseDetectorFactory, get_mp_drawing_utils, get_mp_pose_solutions
+                        pose = PoseDetectorFactory.create_video_analysis_detector()
+                        mp_drawing = get_mp_drawing_utils()
+                        mp_pose = get_mp_pose_solutions()
                         
                         # Create output path in videos directory for proper playback
                         videos_dir = os.path.join(os.path.dirname(__file__), "..", "..", "videos")
@@ -457,7 +459,7 @@ elif st.session_state.page == "Analyze":
                             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                             results = pose.process(rgb_frame)
                             if results.pose_landmarks:
-                                mp.solutions.drawing_utils.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+                                mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
                                 # Use the same check_form logic as live mode
                                 from src.processing.forms_check import check_form
                                 feedback, reps = check_form(selected_exercise, frame, results.pose_landmarks.landmark, state)

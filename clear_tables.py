@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Clear SessionDetails and SystemFeedback tables
+Clear Session, SessionDetails and SystemFeedback tables
 """
 import sys
 import os
@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.abspath('.'))
 from src.database.database_connection import get_connection
 
 def clear_tables():
-    """Clear Session, SessionDetails and SystemFeedback tables"""
     print("🧹 Clearing Session, SessionDetails and SystemFeedback tables...")
     
     conn = get_connection()

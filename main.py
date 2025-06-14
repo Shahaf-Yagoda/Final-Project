@@ -9,13 +9,14 @@ import os
 import shutil
 from dotenv import load_dotenv
 from src.processing.forms_check import check_form, init_state
+from src.processing.pose_detector import PoseDetectorFactory, get_mp_drawing_utils, get_mp_pose_solutions
 from src.database.database_connection import get_connection
 from src.database.session import Session
 from src.database.session_details import SessionDetails
 from src.database.system_feedback import SystemFeedback
 
-mp_drawing = mp.solutions.drawing_utils
-mp_pose = mp.solutions.pose
+mp_drawing = get_mp_drawing_utils()
+mp_pose = get_mp_pose_solutions()
 from src.database.db_utils import (
     save_session_to_db,
     save_session_details_to_db,
@@ -38,13 +39,7 @@ class ExerciseSession:
                 exercise_name: init_state(exercise_name)
             }
         }
-        self.pose_detector = mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            enable_segmentation=False,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        self.pose_detector = PoseDetectorFactory.create_live_exercise_detector()
         self.start_time = None
         self.end_time = None
         self.video_writer = None

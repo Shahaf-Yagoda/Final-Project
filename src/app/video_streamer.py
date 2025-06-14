@@ -6,6 +6,7 @@ import time
 import os
 import numpy as np
 from src.processing.forms_check import get_exercise_checker, init_state
+from src.processing.pose_detector import PoseDetectorFactory, get_mp_drawing_utils
 import mediapipe as mp
 import sys
 import json
@@ -21,14 +22,8 @@ class VideoStreamManager:
     
     def __init__(self):
         self.mp_pose = mp.solutions.pose
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.pose_detector = self.mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            enable_segmentation=False,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        self.mp_drawing = get_mp_drawing_utils()
+        self.pose_detector = PoseDetectorFactory.create_live_exercise_detector()
         self.session_states: Dict[str, dict] = {}
         self.video_writers: Dict[Tuple[int, str], cv2.VideoWriter] = {}
         self.video_temp_paths: Dict[Tuple[int, str], str] = {}

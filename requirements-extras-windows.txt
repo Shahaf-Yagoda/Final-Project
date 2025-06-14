@@ -1,0 +1,24 @@
+# Windows-Specific Additional Dependencies
+# Install with: pip install -r requirements.txt -r requirements-extras-windows.txt
+
+# Windows-specific audio support (if needed)
+# pywin32==306  # Uncomment if Windows audio issues occur
+
+# Windows considerations:
+# 1. Ensure Visual Studio Build Tools are installed for compiled packages
+# 2. May need to install Windows SDK for some dependencies
+# 3. For PostgreSQL, install PostgreSQL server or use cloud database
+# 4. Camera access requires Windows Camera permissions
+
+# Installation Notes for Windows:
+# pip install -r requirements.txt -r requirements-extras-windows.txt
+# 
+# If installation fails for any package:
+# 1. Try: pip install --no-cache-dir [package_name]
+# 2. Or: pip install --only-binary=all [package_name]
+# 3. For compilation issues, install: 
+#    - Microsoft C++ Build Tools
+#    - Visual Studio Community (with C++ tools)
+#
+# For MediaPipe issues on Windows:
+# pip install mediapipe-silicon  # Alternative if standard mediapipe fails

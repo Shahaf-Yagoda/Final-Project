@@ -1,0 +1,17 @@
+# Minimal Installation - Remove Optional Dependencies
+# Install with: pip install -r requirements.txt -r requirements-extras-minimal.txt
+
+# Remove optional dependencies for minimal installation:
+# (Add negative dependencies if pip supported them - currently just documentation)
+
+# This minimal installation excludes:
+# - matplotlib (plotting - only needed for analytics)
+# - rich (pretty CLI output - nice-to-have)
+# - scipy (scientific computing - MediaPipe dependency)
+# - Some JSON schema validation packages
+
+# For truly minimal installation, consider installing core packages individually:
+# pip install streamlit Flask opencv-python mediapipe numpy psycopg2-binary bcrypt python-dotenv requests
+
+# Note: This file is mainly for documentation. 
+# Use the main requirements.txt for standard installation.

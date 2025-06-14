@@ -1,5 +1,5 @@
 # Right Motion - Fitness Tracking Application
-# Core Dependencies (macOS/Unix)
+# Core Dependencies (Cross-Platform)
 
 # Web Framework & UI
 streamlit==1.44.1
@@ -85,5 +85,7 @@ typing-extensions==4.13.0
 # Scientific Computing
 scipy==1.13.1
 
-# macOS-specific (automatically installed on macOS)
-# Note: pyobjc frameworks removed for cross-platform compatibility
+# Installation Options:
+# Default installation: pip install -r requirements.txt
+# Windows installation: pip install -r requirements.txt -r requirements-extras-windows.txt
+# Minimal installation: pip install -r requirements.txt -r requirements-extras-minimal.txt

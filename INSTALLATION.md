@@ -51,19 +51,20 @@ source venv/bin/activate
 
 ### 3. Install Dependencies
 
-#### For Windows:
-```bash
-pip install -r requirements_windows.txt
-```
-
-#### For macOS/Linux:
+#### Standard Installation (Recommended):
 ```bash
 pip install -r requirements.txt
 ```
 
-#### For Minimal Installation (any platform):
+#### For Windows (with additional notes):
 ```bash
-pip install -r requirements_clean.txt
+pip install -r requirements.txt -r requirements-extras-windows.txt
+```
+
+#### For Minimal Installation:
+```bash
+# Core packages only (see requirements-extras-minimal.txt for details)
+pip install streamlit Flask opencv-python mediapipe numpy psycopg2-binary bcrypt python-dotenv requests
 ```
 
 ### 4. Database Setup
