@@ -17,9 +17,12 @@ import threading
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 # Use absolute imports for src modules
-from src.database.db_utils import save_session_to_db, save_session_details_to_db, save_system_feedback_to_db
+from src.database.db_utils import save_session_to_db
 from src.database.users.user import User
 from src.database.session import Session
+from src.database.session_details import SessionDetails
+from src.database.system_feedback import SystemFeedback
+from src.database.workout import Workout
 from src.processing.forms_check import check_form
 from src.database.database_connection import get_connection
 
@@ -47,9 +50,10 @@ if not is_port_open(5050) and "video_streamer_started" not in st.session_state:
     except Exception as e:
         print("❌ Failed to start video_streamer.py:", e)
 
-from main import save_session_to_db, save_session_details_to_db, save_system_feedback_to_db
+# Remove duplicate imports - using the ones from db_utils instead
 from datetime import datetime
 import json
+import time
 
 def get_reps_count_from_tempfile(user_id):
     try:
@@ -889,33 +893,57 @@ elif st.session_state.page == "LiveExercise":
                     thread = threading.Thread(target=move_video_file_async, args=(temp_video_path, video_path))
                     thread.start()
 
+                # Create workout for this session using comprehensive schema
+                workout = Workout.create(
+                    user_id=user_id,
+                    workout_date=start.date(),
+                    start_time=start
+                )
+                
+                # Create session with comprehensive schema
                 session = Session(
                     user_id=user_id,
                     exercise_id=exercise_id,
+                    workout_id=workout.workout_id,  # Link to workout
+                    session_order=1,  # First exercise in workout
                     start_time=start,
                     end_time=end,
-                    duration_sec=duration_sec,
+                    duration=duration_sec,  # Use new field name
+                    planned_reps=reps,  # Assume planned equals actual for live sessions
+                    actual_reps=reps,   # Use new field name
+                    session_status='completed',
                     video_path=video_path,
+                    # Legacy fields for backward compatibility
+                    duration_sec=duration_sec,
                     reps_count=reps
                 )
                 session.save()
-                st.success(f"✅ Session saved to the database. (Session ID: {session.session_id})")
+                
+                # Finish the workout
+                workout.finish(end_time=end)
+                
+                st.success(f"✅ Session saved to database (ID: {session.session_id}) with Workout (ID: {workout.workout_id})")
 
-                # Save SessionDetails to DB
+                # Save SessionDetails to DB using new comprehensive schema
                 details = get_session_details_from_temp(user_id)
                 details_saved = 0
                 for detail in details:
                     try:
-                        save_session_details_to_db(
-                            session_id=session.session_id,
-                            timestamp=detail.get("timestamp"),
-                            rep_num=detail.get("rep_num"),
-                            keypoints_json=json.dumps(detail.get("keypoints_json")),
-                            features_json=json.dumps(detail.get("features_json")),
-                            is_correct=detail.get("is_correct"),
-                            incorrect_duration=detail.get("incorrect_duration", 0)
-                        )
-                        details_saved += 1
+                        rep_num = detail.get("rep_num", 0)
+                        # Only save if rep_number > 0 to satisfy database constraint
+                        if rep_num > 0:
+                            SessionDetails.create(
+                                session_id=session.session_id,
+                                rep_number=rep_num,
+                                features_json=detail.get("features_json", {}),
+                                is_correct_form=detail.get("is_correct", False),
+                                incorrect_duration=detail.get("incorrect_duration", 0),
+                                timestamp=datetime.fromtimestamp(detail.get("timestamp", time.time()))
+                            )
+                            details_saved += 1
+                        else:
+                            # Skip saving details for rep_num = 0 (before first rep)
+                            print(f"Skipping session detail with rep_num=0")
                     except Exception as e:
                         print(f"Error saving session detail: {e}")
                 # Clean up temp files after saving
@@ -969,10 +997,12 @@ elif st.session_state.page == "LiveExercise":
                         try:
                             timestamp = fb.get("timestamp")
                             message = fb.get("message")
-                            save_system_feedback_to_db(
+                            # Use new SystemFeedback OOP model
+                            SystemFeedback.create(
                                 session_id=session.session_id,
-                                timestamp=timestamp,
-                                message=message
+                                message=message,
+                                feedback_type="form_correction",
+                                timestamp=datetime.fromtimestamp(timestamp) if isinstance(timestamp, (int, float)) else timestamp
                             )
                             feedback_saved += 1
                         except Exception as e:

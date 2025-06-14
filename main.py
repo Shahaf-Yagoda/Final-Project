@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from src.processing.forms_check import check_form, init_state
 from src.database.database_connection import get_connection
 from src.database.session import Session
+from src.database.session_details import SessionDetails
+from src.database.system_feedback import SystemFeedback
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
@@ -90,20 +92,26 @@ class ExerciseSession:
         return None
     
     def save_session_detail(self, landmarks, feedback, reps, current_time):
-        """Save session detail for database storage."""
-        detail = {
-            "timestamp": current_time,
-            "rep_num": reps,
-            "keypoints_json": [dict(x=lm.x, y=lm.y, z=lm.z, visibility=lm.visibility) for lm in landmarks],
-            "features_json": {},
-            "is_correct": len(feedback) == 0,
-            "incorrect_duration": 0
-        }
-        self.session_details.append(detail)
+        """Save session detail for database storage using new schema."""
+        # Only save if we have actual reps (> 0) to satisfy database constraint
+        if reps > 0:
+            detail = {
+                "timestamp": current_time,
+                "rep_num": reps,
+                # Use new schema - no keypoints, focus on form analysis
+                "features_json": {
+                    "form_correct": len(feedback) == 0,
+                    "feedback_count": len(feedback),
+                    "timestamp": current_time
+                },
+                "is_correct": len(feedback) == 0,
+                "incorrect_duration": 0
+            }
+            self.session_details.append(detail)
         
         # Save feedback
         for msg in feedback:
-            self.feedback_data.append({"timestamp": current_time, "message": msg})
+            self.feedback_data.append({"timestamp": current_time, "message": msg, "related_rep": reps if reps > 0 else None})
     
     def save_keypoints_to_db(self, keypoints_data, workout_id):
         """Save keypoints data to database (placeholder implementation)."""
@@ -213,14 +221,20 @@ class ExerciseSession:
             exercise_id = get_exercise_id_by_name(self.exercise_name)
             duration_sec = int((self.end_time - self.start_time).total_seconds())
             
-            # Create and save session using Session class
+            # Create and save session using comprehensive schema
             session = Session(
                 user_id=self.user_id,
                 exercise_id=exercise_id,
                 start_time=self.start_time,
                 end_time=self.end_time,
-                duration_sec=duration_sec,
+                duration=duration_sec,
+                actual_reps=reps_count,
+                planned_reps=reps_count,  # For now, assume planned equals actual
+                session_status='completed',
                 video_path=self.final_video_path or "",
+                session_order=1,  # Default to 1 for standalone sessions
+                # Legacy fields for backward compatibility
+                duration_sec=duration_sec,
                 reps_count=reps_count
             )
             session.save()
@@ -228,29 +242,30 @@ class ExerciseSession:
             
             print(f"💾 Session saved to database (ID: {session_id})")
             
-            # Save session details
+            # Save session details using new comprehensive schema
             if self.session_details:
                 print(f"💾 Saving {len(self.session_details)} session details...")
                 for detail in self.session_details:
-                    save_session_details_to_db(
+                    SessionDetails.create(
                         session_id=session_id,
-                        timestamp=detail["timestamp"],
-                        rep_num=detail["rep_num"],
-                        keypoints_json=json.dumps(detail["keypoints_json"]),
-                        features_json=json.dumps(detail["features_json"]),
-                        is_correct=detail["is_correct"],
-                        incorrect_duration=detail["incorrect_duration"]
+                        rep_number=detail["rep_num"],
+                        features_json=detail["features_json"],
+                        is_correct_form=detail["is_correct"],
+                        incorrect_duration=detail["incorrect_duration"],
+                        timestamp=datetime.fromtimestamp(detail["timestamp"])
                     )
             
-            # Save feedback data
+            # Save feedback data using comprehensive schema
             if self.feedback_data:
                 print(f"💾 Saving {len(self.feedback_data)} feedback entries...")
                 for feedback in self.feedback_data:
-                    save_system_feedback_to_db(
+                    # Use new SystemFeedback OOP model with related_rep tracking
+                    SystemFeedback.create(
                         session_id=session_id,
-                        timestamp=feedback["timestamp"],
+                        message=feedback["message"],
                         feedback_type="form_correction",
-                        message=feedback["message"]
+                        related_rep=feedback.get("related_rep"),
+                        timestamp=datetime.fromtimestamp(feedback["timestamp"])
                     )
             
             print(f"✅ Complete session data saved successfully!")

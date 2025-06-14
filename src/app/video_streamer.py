@@ -176,16 +176,21 @@ class VideoStreamManager:
             
             self.save_reps_to_tempfile(user_id, reps)
             
-            # Save session details
-            detail = {
-                "timestamp": time.time(),
-                "rep_num": reps,
-                "keypoints_json": [dict(x=lm.x, y=lm.y, z=lm.z, visibility=lm.visibility) for lm in landmarks],
-                "features_json": {},
-                "is_correct": len(feedback) == 0,
-                "incorrect_duration": 0
-            }
-            self.append_session_detail(user_id, detail)
+            # Save session details only when reps > 0 (to satisfy database constraint)
+            if reps > 0:
+                detail = {
+                    "timestamp": time.time(),
+                    "rep_num": reps,
+                    # Use new schema - no keypoints, focus on form analysis
+                    "features_json": {
+                        "form_correct": len(feedback) == 0,
+                        "feedback_count": len(feedback),
+                        "timestamp": time.time()
+                    },
+                    "is_correct": len(feedback) == 0,
+                    "incorrect_duration": 0
+                }
+                self.append_session_detail(user_id, detail)
             
             # Save feedback
             for msg in feedback:

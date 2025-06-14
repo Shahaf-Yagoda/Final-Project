@@ -1,8 +1,84 @@
+# Environment and configuration
 .env
 .DS_Store
-# Video files
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE and editor files
+.claude/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project-specific files
+ERD/
 videos/
+gitignore
+claude.md
+cleanup_camera.sh
+project_structure.txt
+
+# Video files
 *.mp4
 *.avi
 *.mov
 *.mkv
+*.webm
+*.flv
+
+# Database files
+*.db
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Log files
+*.log
+logs/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.coverage.*

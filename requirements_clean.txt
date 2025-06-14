@@ -1,5 +1,5 @@
 # Right Motion - Fitness Tracking Application
-# Core Dependencies (macOS/Unix)
+# Core Dependencies (Cross-Platform)
 
 # Web Framework & UI
 streamlit==1.44.1
@@ -33,31 +33,20 @@ requests==2.32.3
 
 # Date/Time Utilities
 python-dateutil==2.9.0.post0
-pytz==2025.2
 
 # Core Python Extensions
 click==8.1.8
 jinja2==3.1.6
 werkzeug==3.1.3
-markupsafe==3.0.2
-itsdangerous==2.2.0
 
 # Data Validation
 pydantic==2.11.2
-pydantic-core==2.33.1
 
-# Plotting & Visualization
+# Plotting (Optional - for analytics)
 matplotlib==3.9.4
-kiwisolver==1.4.7
-cycler==0.12.1
-fonttools==4.56.0
-pyparsing==3.2.1
 
 # JSON Schema Validation
 jsonschema==4.23.0
-jsonschema-specifications==2024.10.1
-referencing==0.36.2
-rpds-py==0.24.0
 
 # Progress Bars & CLI
 rich==14.0.0
@@ -72,18 +61,3 @@ jaxlib==0.4.30
 # TensorFlow Lite dependencies
 flatbuffers==25.2.10
 absl-py==2.1.0
-ml-dtypes==0.5.1
-
-# Additional utilities
-certifi==2025.1.31
-charset-normalizer==3.4.1
-urllib3==2.3.0
-idna==3.10
-packaging==24.2
-typing-extensions==4.13.0
-
-# Scientific Computing
-scipy==1.13.1
-
-# macOS-specific (automatically installed on macOS)
-# Note: pyobjc frameworks removed for cross-platform compatibility

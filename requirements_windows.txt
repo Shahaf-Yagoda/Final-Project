@@ -1,5 +1,5 @@
 # Right Motion - Fitness Tracking Application
-# Core Dependencies (macOS/Unix)
+# Windows-Specific Dependencies
 
 # Web Framework & UI
 streamlit==1.44.1
@@ -11,7 +11,7 @@ opencv-python==4.11.0.86
 mediapipe==0.10.21
 numpy==1.26.4
 
-# Database
+# Database (Windows-compatible PostgreSQL adapter)
 psycopg2-binary==2.9.9
 
 # Data Processing
@@ -24,9 +24,12 @@ bcrypt==4.3.0
 # Configuration & Environment
 python-dotenv==1.1.0
 
-# Audio Processing (Text-to-Speech)
+# Audio Processing (Windows-compatible TTS)
 gTTS==2.5.4
 pyttsx3==2.98
+
+# Windows-specific audio support (if needed)
+# pywin32==306  # Uncomment if Windows audio issues occur
 
 # HTTP Requests
 requests==2.32.3
@@ -65,7 +68,7 @@ rich==14.0.0
 # Google Protobuf (for MediaPipe)
 protobuf==4.25.6
 
-# JAX (for MediaPipe ML operations)
+# JAX (Windows-compatible)
 jax==0.4.30
 jaxlib==0.4.30
 
@@ -74,16 +77,34 @@ flatbuffers==25.2.10
 absl-py==2.1.0
 ml-dtypes==0.5.1
 
-# Additional utilities
+# Additional Windows utilities
 certifi==2025.1.31
 charset-normalizer==3.4.1
 urllib3==2.3.0
 idna==3.10
+
+# Scientific Computing (Windows)
+scipy==1.13.1
+
+# Packaging utilities
 packaging==24.2
 typing-extensions==4.13.0
 
-# Scientific Computing
-scipy==1.13.1
+# Windows-specific considerations:
+# 1. Ensure Visual Studio Build Tools are installed for compiled packages
+# 2. May need to install Windows SDK for some dependencies
+# 3. For PostgreSQL, install PostgreSQL server or use cloud database
+# 4. Camera access requires Windows Camera permissions
 
-# macOS-specific (automatically installed on macOS)
-# Note: pyobjc frameworks removed for cross-platform compatibility
+# Installation Notes for Windows:
+# pip install -r requirements_windows.txt
+# 
+# If installation fails for any package:
+# 1. Try: pip install --no-cache-dir [package_name]
+# 2. Or: pip install --only-binary=all [package_name]
+# 3. For compilation issues, install: 
+#    - Microsoft C++ Build Tools
+#    - Visual Studio Community (with C++ tools)
+#
+# For MediaPipe issues on Windows:
+# pip install mediapipe-silicon  # Alternative if standard mediapipe fails
