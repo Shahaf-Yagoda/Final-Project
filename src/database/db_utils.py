@@ -48,6 +48,10 @@ def save_session_details_to_db(session_id, timestamp, rep_num, keypoints_json,
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
+            # Convert numeric timestamp to datetime if needed
+            if isinstance(timestamp, (int, float)):
+                timestamp = datetime.fromtimestamp(timestamp)
+            
             cursor.execute(
                 """
                 INSERT INTO SessionDetails (session_id, timestamp, rep_num, keypoints_json, features_json, is_correct, incorrect_duration)
@@ -71,6 +75,10 @@ def save_system_feedback_to_db(session_id, timestamp, message):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
+            # Convert numeric timestamp to datetime if needed
+            if isinstance(timestamp, (int, float)):
+                timestamp = datetime.fromtimestamp(timestamp)
+            
             cursor.execute(
                 """
                 INSERT INTO SystemFeedback (session_id, timestamp, message)
@@ -90,6 +98,10 @@ def save_comment_to_db(session_id, user_id, timestamp, comment):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
+            # Convert numeric timestamp to datetime if needed
+            if isinstance(timestamp, (int, float)):
+                timestamp = datetime.fromtimestamp(timestamp)
+            
             cursor.execute(
                 """
                 INSERT INTO Comment (session_id, user_id, timestamp, comment)

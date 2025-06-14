@@ -260,12 +260,12 @@ if st.session_state.page == "Home":
         with col2:
             st.button("🏃 Live Exercise", on_click=set_page, args=("LiveExercise",))
         with col3:
-            st.button("🧩 TBD", on_click=set_page, args=("TBD",))
-        st.button("🚪 Log Out", on_click=logout)
-
-    # Add a button to access history from the home page
-    if st.session_state.logged_in:
-        st.button("📜 Session History", on_click=set_page, args=("History",))
+            st.button("📜 Session History", on_click=set_page, args=("History",))
+        
+        # Center the Log Out button on its own row
+        col_logout = st.columns([1, 1, 1])
+        with col_logout[1]:
+            st.button("🚪 Log Out", on_click=logout)
 
 # Register Page
 elif st.session_state.page == "Register":
@@ -287,11 +287,17 @@ elif st.session_state.page == "Register":
             st.error("Email, username, and password are required.")
         else:
             try:
+                profile_data = {
+                    "name": name,
+                    "date_of_birth": str(dob),
+                    "height": height,
+                    "weight": weight
+                }
                 user = User.register(
-                    name=name,
                     email=email,
                     username=username,
                     password=password,
+                    profile_data=profile_data,
                     role=role
                 )
                 st.success(f"User registered with ID: {user.user_id}")
@@ -938,6 +944,175 @@ elif st.session_state.page == "LiveExercise":
                     
                 st.info(f"Saved {details_saved} session details to the database.")
 
+                # Process and display Form Feedback
+                feedback = get_feedback_from_temp(user_id)
+                if feedback:
+                    # Deduplicate feedback before saving to database
+                    unique_feedback_for_db = []
+                    seen_combinations = set()
+                    
+                    for fb in feedback:
+                        timestamp = fb.get("timestamp")
+                        message = fb.get("message")
+                        if timestamp and message:
+                            # Create a deduplication key with message and rounded timestamp (to nearest 5 seconds)
+                            rounded_timestamp = round(timestamp / 5) * 5
+                            dedup_key = f"{message}_{rounded_timestamp}"
+                            
+                            if dedup_key not in seen_combinations:
+                                unique_feedback_for_db.append(fb)
+                                seen_combinations.add(dedup_key)
+                    
+                    # Save deduplicated feedback to database
+                    feedback_saved = 0
+                    for fb in unique_feedback_for_db:
+                        try:
+                            timestamp = fb.get("timestamp")
+                            message = fb.get("message")
+                            save_system_feedback_to_db(
+                                session_id=session.session_id,
+                                timestamp=timestamp,
+                                message=message
+                            )
+                            feedback_saved += 1
+                        except Exception as e:
+                            print(f"Error saving feedback: {e}")
+                    
+                    if feedback_saved > 0:
+                        st.info(f"Saved {feedback_saved} feedback messages to the database.")
+                    
+                    # Display Form Feedback with same styling as Analyze Video page
+                    st.subheader("📝 Form Feedback:")
+                    
+                    # Create formatted feedback with proper timestamps
+                    formatted_feedback = []
+                    session_start_time = None
+                    
+                    # Find the earliest timestamp to use as session start
+                    valid_timestamps = [fb.get("timestamp") for fb in feedback if fb.get("timestamp")]
+                    if valid_timestamps:
+                        session_start_time = min(valid_timestamps)
+                    
+                    for fb in feedback:
+                        try:
+                            timestamp = fb.get("timestamp")
+                            message = fb.get("message")
+                            if timestamp and message and session_start_time:
+                                # Calculate relative seconds from session start
+                                relative_seconds = timestamp - session_start_time
+                                # Ensure non-negative timestamps
+                                relative_seconds = max(0, relative_seconds)
+                                # Convert to MM:SS format
+                                minutes = int(relative_seconds // 60)
+                                seconds = int(relative_seconds % 60)
+                                timestamp_str = f"{minutes:02d}:{seconds:02d}"
+                                formatted_feedback.append(f"{timestamp_str} - {message}")
+                            elif message:
+                                # If no valid timestamp, use message without timestamp
+                                formatted_feedback.append(str(message))
+                        except Exception as e:
+                            # Fallback for any timestamp conversion issues
+                            if fb.get("message"):
+                                formatted_feedback.append(str(fb.get("message")))
+                    
+                    # Smart message aggregation instead of simple deduplication
+                    def aggregate_feedback_messages(formatted_feedback):
+                        """Group similar feedback messages with occurrence counts and time ranges."""
+                        message_groups = {}
+                        
+                        for msg in formatted_feedback:
+                            if ' - ' in msg:
+                                timestamp_str, message = msg.split(' - ', 1)
+                                # Extract just the core message (ignore severity words)
+                                core_message = message.replace("CRITICAL: ", "").replace("Don't ", "").strip()
+                                
+                                if core_message not in message_groups:
+                                    message_groups[core_message] = {
+                                        'original_message': message,
+                                        'timestamps': [],
+                                        'count': 0,
+                                        'has_critical': False
+                                    }
+                                
+                                message_groups[core_message]['timestamps'].append(timestamp_str)
+                                message_groups[core_message]['count'] += 1
+                                if "CRITICAL" in message:
+                                    message_groups[core_message]['has_critical'] = True
+                            else:
+                                # Handle messages without timestamps
+                                if msg not in message_groups:
+                                    message_groups[msg] = {
+                                        'original_message': msg,
+                                        'timestamps': [],
+                                        'count': 1,
+                                        'has_critical': False
+                                    }
+                        
+                        # Create aggregated feedback messages
+                        aggregated = []
+                        for _, data in message_groups.items():
+                            if data['timestamps']:
+                                first_time = data['timestamps'][0]
+                                last_time = data['timestamps'][-1]
+                                
+                                if data['count'] == 1:
+                                    # Single occurrence - use original format
+                                    aggregated.append(f"{first_time} - {data['original_message']}")
+                                else:
+                                    # Multiple occurrences - show aggregated format
+                                    severity_prefix = "⚠️ CRITICAL: " if data['has_critical'] else ""
+                                    if first_time == last_time:
+                                        aggregated.append(f"{first_time} - {severity_prefix}{data['original_message']} (occurred {data['count']} times)")
+                                    else:
+                                        aggregated.append(f"{first_time}-{last_time} - {severity_prefix}{data['original_message']} (occurred {data['count']} times)")
+                            else:
+                                # No timestamp - just add the message
+                                aggregated.append(data['original_message'])
+                        
+                        return aggregated
+                    
+                    unique_feedback = aggregate_feedback_messages(formatted_feedback)
+                    
+                    # Display feedback with enhanced styling (same as Analyze Video page)
+                    st.markdown("""
+                    <style>
+                    .feedback-container {
+                        max-height: 300px;
+                        overflow-y: auto;
+                        border: 1px solid #ddd;
+                        border-radius: 8px;
+                        padding: 1rem;
+                        background-color: #f8f9fa;
+                        margin: 10px 0;
+                    }
+                    .feedback-item {
+                        background-color: white;
+                        padding: 0.5rem;
+                        margin-bottom: 0.5rem;
+                        border-left: 4px solid #ff6b6b;
+                        border-radius: 4px;
+                        font-family: 'Source Code Pro', monospace;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    if unique_feedback:
+                        feedback_html = '<div class="feedback-container">'
+                        for i, msg in enumerate(unique_feedback, 1):
+                            if ' - ' in msg:
+                                timestamp, message = msg.split(' - ', 1)
+                                feedback_html += f'<div class="feedback-item"><strong>{timestamp}</strong> – {message}</div>'
+                            else:
+                                feedback_html += f'<div class="feedback-item">{msg}</div>'
+                        feedback_html += '</div>'
+                        
+                        st.markdown(feedback_html, unsafe_allow_html=True)
+                        st.caption(f"Generated {len(unique_feedback)} feedback messages during your live session.")
+                    else:
+                        st.info("Great job! No form corrections needed during your session.")
+                else:
+                    st.info("No feedback data available for this session.")
+
                 # Wait for video file to be fully written (poll for up to 10 seconds)
                 max_wait = 60
                 waited = 0
@@ -1085,15 +1260,6 @@ elif st.session_state.page == "LiveExercise":
             for key in ["selected_exercise", "start_time", "stop_time", "reps_count"]:
                 st.session_state.pop(key, None)
             st.rerun()
-# TBD Page
-# Placeholder
-elif st.session_state.page == "TBD":
-    if not st.session_state.logged_in:
-        st.warning("Please log in to access this page.")
-        st.button("🔑 Go to Login", on_click=set_page, args=("Login",))
-    else:
-        st.title("Coming Soon")
-        st.button("⬅️ Back to Home", on_click=set_page, args=("Home",))
 
 # Session History Page
 elif st.session_state.page == "History":

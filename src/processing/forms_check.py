@@ -207,6 +207,14 @@ class OverheadPressChecker(BaseExerciseChecker):
             # Feedback management
             "last_audio_time": 0,
             "last_audio_msg": "",
+            
+            # Event-based feedback state tracking
+            "previous_spine_straight": True,
+            "previous_elbows_bent": True,
+            "previous_arms_synchronized": True,
+            "previous_spine_severity": "good",  # good, caution, warning, critical
+            "previous_sync_severity": "good",
+            "form_state_changed": False,
             "priority_feedback": [],
             
             # Rep validation tracking
@@ -534,6 +542,66 @@ class OverheadPressChecker(BaseExerciseChecker):
         
         return False
     
+    def get_spine_severity(self, spine_deviation):
+        """Determine spine deviation severity level."""
+        if spine_deviation <= 5:
+            return "good"
+        elif spine_deviation <= 10:
+            return "caution"
+        elif spine_deviation <= 15:
+            return "warning"
+        else:
+            return "critical"
+    
+    def get_sync_severity(self, angle_diff):
+        """Determine arm synchronization severity level."""
+        if angle_diff <= 10:
+            return "good"
+        elif angle_diff <= 20:
+            return "caution"
+        else:
+            return "warning"
+    
+    def detect_form_state_changes(self, current_spine_straight, current_elbows_bent, 
+                                 current_arms_synchronized, spine_deviation, sync_diff, state):
+        """Detect significant changes in form state that warrant feedback."""
+        state_changed = False
+        
+        # Check spine state change
+        prev_spine_straight = state.get("previous_spine_straight", True)
+        if current_spine_straight != prev_spine_straight:
+            state["previous_spine_straight"] = current_spine_straight
+            state_changed = True
+        
+        # Check elbow state change
+        prev_elbows_bent = state.get("previous_elbows_bent", True)
+        if current_elbows_bent != prev_elbows_bent:
+            state["previous_elbows_bent"] = current_elbows_bent
+            state_changed = True
+        
+        # Check arm sync state change
+        prev_arms_synchronized = state.get("previous_arms_synchronized", True)
+        if current_arms_synchronized != prev_arms_synchronized:
+            state["previous_arms_synchronized"] = current_arms_synchronized
+            state_changed = True
+        
+        # Check spine severity change
+        current_spine_severity = self.get_spine_severity(spine_deviation)
+        prev_spine_severity = state.get("previous_spine_severity", "good")
+        if current_spine_severity != prev_spine_severity:
+            state["previous_spine_severity"] = current_spine_severity
+            state_changed = True
+        
+        # Check sync severity change
+        current_sync_severity = self.get_sync_severity(sync_diff)
+        prev_sync_severity = state.get("previous_sync_severity", "good")
+        if current_sync_severity != prev_sync_severity:
+            state["previous_sync_severity"] = current_sync_severity
+            state_changed = True
+        
+        state["form_state_changed"] = state_changed
+        return state_changed
+    
     def check_form(self, image, landmarks, state):
         """Enhanced overhead press form analysis with comprehensive feedback and disabled auto-stopping."""
         feedback = []
@@ -653,36 +721,56 @@ class OverheadPressChecker(BaseExerciseChecker):
             # Enhanced continuous spine monitoring (priority feedback)
             spine_max = self.SPINE_TOP_POSITION_MAX if state["rep_phase"] == "top_position" else self.SPINE_BACKWARD_MAX
             
-            # More detailed spine feedback
-            if spine_deviation > self.SPINE_FORWARD_MAX:
-                if spine_deviation > 15:
-                    spine_feedback.append("CRITICAL: Stand up straight - severe forward lean")
-                else:
-                    spine_feedback.append("Don't lean forward - keep chest up")
-                state["rep_spine_ok"] = False
-                state["spine_violations"] += 1
-            elif spine_deviation < -spine_max:
-                if abs(spine_deviation) > 20:
-                    spine_feedback.append("CRITICAL: Don't arch back - severe hyperextension")
-                else:
-                    spine_feedback.append("Don't arch your back - stay neutral")
+            # Event-based spine feedback (only on state changes)
+            current_spine_straight = not (spine_deviation > self.SPINE_FORWARD_MAX or spine_deviation < -spine_max)
+            
+            # Calculate sync difference for event detection
+            sync_diff = abs(elbow_angle_l - elbow_angle_r)
+            is_synchronized = sync_diff <= 15
+            
+            # Detect form state changes
+            form_changed = self.detect_form_state_changes(
+                current_spine_straight, True, is_synchronized, 
+                abs(spine_deviation), sync_diff, state
+            )
+            
+            # Only generate spine feedback on state changes or severity escalation
+            if form_changed and not current_spine_straight:
+                current_severity = self.get_spine_severity(abs(spine_deviation))
+                if spine_deviation > self.SPINE_FORWARD_MAX:
+                    if current_severity == "critical":
+                        spine_feedback.append("CRITICAL: Stand up straight - severe forward lean")
+                    elif current_severity == "warning":
+                        spine_feedback.append("Don't lean forward - keep chest up")
+                elif spine_deviation < -spine_max:
+                    if abs(spine_deviation) > 20:
+                        spine_feedback.append("CRITICAL: Don't arch back - severe hyperextension")
+                    else:
+                        spine_feedback.append("Don't arch your back - stay neutral")
+                
                 state["rep_spine_ok"] = False
                 state["spine_violations"] += 1
             else:
+                state["rep_spine_ok"] = current_spine_straight
                 # Reset spine violation counter when corrected
-                if state.get("spine_violations", 0) > 0:
+                if current_spine_straight and state.get("spine_violations", 0) > 0:
                     state["spine_violations"] = 0
             
-            # Enhanced arm synchronization checking
-            is_synchronized, sync_msgs = self.check_arm_synchronization_enhanced(elbow_angle_l, elbow_angle_r, state)
-            sync_feedback.extend(sync_msgs)
-            
-            if not is_synchronized:
+            # Event-based arm synchronization checking
+            # Only generate sync feedback if there was a state change
+            if form_changed and not is_synchronized:
+                sync_severity = self.get_sync_severity(sync_diff)
+                if sync_severity == "warning":
+                    sync_feedback.append("Synchronize your arms - significant difference detected")
+                elif sync_severity == "caution":
+                    sync_feedback.append("Keep arms moving together")
+                
                 state["rep_sync_maintained"] = False
                 state["sync_violations"] += 1
             else:
+                state["rep_sync_maintained"] = is_synchronized
                 # Reset sync violation counter when corrected
-                if state.get("sync_violations", 0) > 0:
+                if is_synchronized and state.get("sync_violations", 0) > 0:
                     state["sync_violations"] = 0
             
             # Enhanced rep phase detection with better thresholds

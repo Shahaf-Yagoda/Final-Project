@@ -32,6 +32,8 @@ class VideoStreamManager:
         self.session_states: Dict[str, dict] = {}
         self.video_writers: Dict[Tuple[int, str], cv2.VideoWriter] = {}
         self.video_temp_paths: Dict[Tuple[int, str], str] = {}
+        # Throttling state: {user_id: {message: last_timestamp}}
+        self.feedback_throttle: Dict[int, Dict[str, float]] = {}
     
     def get_session_key(self, user_id: int, exercise: str) -> str:
         """Generate a unique session key."""
@@ -87,7 +89,6 @@ class VideoStreamManager:
         except Exception as e:
             print(f"Error appending session detail for user {user_id}: {e}")
             # Fallback: write to a separate file with timestamp
-            import time
             fallback_file = f"/tmp/sessiondetails_{user_id}_{int(time.time())}.json"
             try:
                 with open(fallback_file, "w") as f:
@@ -95,8 +96,34 @@ class VideoStreamManager:
             except Exception as fallback_error:
                 print(f"Fallback write also failed: {fallback_error}")
     
+    def should_throttle_feedback(self, user_id: int, message: str, current_time: float, throttle_seconds: float = 2.0) -> bool:
+        """Check if feedback should be throttled based on message and time."""
+        if user_id not in self.feedback_throttle:
+            self.feedback_throttle[user_id] = {}
+        
+        user_throttle = self.feedback_throttle[user_id]
+        
+        # Check if we've seen this exact message recently
+        if message in user_throttle:
+            time_since_last = current_time - user_throttle[message]
+            return time_since_last < throttle_seconds
+        
+        return False
+    
     def append_feedback(self, user_id: int, feedback: dict):
-        """Append feedback to temporary JSON file with error handling."""
+        """Append feedback to temporary JSON file with throttling and error handling."""
+        message = feedback.get("message", "")
+        current_time = feedback.get("timestamp", time.time())
+        
+        # Apply throttling - only save if message hasn't been seen recently
+        if self.should_throttle_feedback(user_id, message, current_time):
+            return  # Skip this feedback due to throttling
+        
+        # Update throttle tracking
+        if user_id not in self.feedback_throttle:
+            self.feedback_throttle[user_id] = {}
+        self.feedback_throttle[user_id][message] = current_time
+        
         feedback_file = f"/tmp/feedback_{user_id}.json"
         import fcntl
         
@@ -126,7 +153,6 @@ class VideoStreamManager:
         except Exception as e:
             print(f"Error appending feedback for user {user_id}: {e}")
             # Fallback: write to a separate file with timestamp
-            import time
             fallback_file = f"/tmp/feedback_{user_id}_{int(time.time())}.json"
             try:
                 with open(fallback_file, "w") as f:
@@ -168,16 +194,48 @@ class VideoStreamManager:
         return frame
     
     def setup_video_recording(self, user_id: int, exercise: str, cap: cv2.VideoCapture) -> cv2.VideoWriter:
-        """Setup video recording for the session."""
+        """Setup video recording for the session with improved codec handling."""
         temp_video_path = f"/tmp/user{user_id}_session.mp4"
         self.video_temp_paths[(user_id, exercise)] = temp_video_path
         
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Use same codec priority as Analyze Video page for consistency
+        fourcc_options = [
+            cv2.VideoWriter_fourcc(*'H264'),  # H.264 (best browser support)
+            cv2.VideoWriter_fourcc(*'avc1'),  # H.264 alternative
+            cv2.VideoWriter_fourcc(*'XVID'),  # XVID (good compatibility)
+            cv2.VideoWriter_fourcc(*'mp4v'),  # MPEG-4 (fallback)
+            cv2.VideoWriter_fourcc(*'MJPG'),  # Motion JPEG (last resort)
+        ]
+        
         fps = cap.get(cv2.CAP_PROP_FPS) or 25
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
-        out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
+        # Ensure dimensions are even numbers (required for some codecs)
+        if width % 2 != 0:
+            width -= 1
+        if height % 2 != 0:
+            height -= 1
+        
+        # Try each codec until one works
+        out = None
+        
+        for fourcc in fourcc_options:
+            try:
+                test_out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
+                if test_out.isOpened():
+                    out = test_out
+                    print(f"✅ Successfully initialized video recording with codec: {fourcc}")
+                    break
+                else:
+                    test_out.release()
+            except Exception as e:
+                print(f"⚠️ Failed to initialize with codec {fourcc}: {e}")
+                continue
+        
+        if out is None:
+            raise RuntimeError("❌ Failed to initialize video writer with any supported codec")
+        
         self.video_writers[(user_id, exercise)] = out
         return out
     
@@ -205,7 +263,7 @@ class VideoStreamManager:
                 processed_frame = self.process_frame(frame, exercise, user_id)
                 out.write(processed_frame)
                 
-                ret, buffer = cv2.imencode('.jpg', processed_frame)
+                _, buffer = cv2.imencode('.jpg', processed_frame)
                 frame_bytes = buffer.tobytes()
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
