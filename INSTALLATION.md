@@ -100,8 +100,25 @@ PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 ```
 
 ### 6. Initialize Database
+
+#### Option A: Quick Setup (Recommended)
 ```bash
-# Run database migrations
+# Create all database tables and seed data
+python setup_database.py
+```
+
+#### Option B: Advanced Setup
+```bash
+# Full-featured schema builder with options
+python create_db_schema.py
+
+# To recreate schema (WARNING: deletes existing data)
+python create_db_schema.py --drop
+```
+
+#### Option C: Manual Migration (Alternative)
+```bash
+# Run database migrations manually
 python src/database/migrations/run_comprehensive_migration.py
 
 # Add seed data for exercises
@@ -164,6 +181,9 @@ python src/database/test_db.py
 
 # Check connection string format:
 # postgresql://username:password@host:port/database_name
+
+# If database setup fails, try manual setup:
+python setup_database.py
 ```
 
 #### Audio/TTS Issues
@@ -213,6 +233,8 @@ pip install pywin32
 
 - **CLAUDE.md**: Development guidelines and architecture overview
 - **src/database/**: Database schema and migration scripts
+- **setup_database.py**: Quick database setup script
+- **create_db_schema.py**: Advanced schema builder with CLI options
 - **tests/**: Comprehensive test suite with 43 tests
 - **videos/**: Processed exercise videos (created during runtime)
 
