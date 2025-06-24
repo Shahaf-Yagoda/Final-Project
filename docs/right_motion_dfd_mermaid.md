@@ -320,12 +320,12 @@ graph TD
 ### Data Stores (מאגרי נתונים)
 | Store | Hebrew Name | Description | Data Elements |
 |-------|-------------|-------------|---------------|
-| DS1 | מאגר משתמשים | User information storage | user_id, email, username, password_hash, profile_data, user_type |
-| DS2 | מאגר תרגילים | Exercise definitions and rules | exercise_id, exercise_name, target_muscles, instructions, analysis_rules |
-| DS3 | מאגר סשנים | Exercise session records | session_id, user_id, exercise_id, timestamps, duration, video_path |
-| DS4 | מאגר פרטי סשן | Detailed rep-by-rep data | detail_id, session_id, rep_number, pose_keypoints, form_score |
-| DS5 | מאגר משוב מערכת | System-generated feedback | feedback_id, session_id, message, feedback_type, timestamp |
-| DS6 | מאגר וידאו | Video file storage | video_files, file_paths, metadata, processed_videos |
+| DS1 | מאגר משתמשים | User information storage (PostgreSQL) | user_id, email, username, password_hash, profile_data, user_type |
+| DS2 | מאגר תרגילים | Exercise definitions and rules (PostgreSQL) | exercise_id, exercise_name, target_muscles, instructions, analysis_rules |
+| DS3 | מאגר סשנים | Exercise session records (PostgreSQL) | session_id, user_id, exercise_id, timestamps, duration, video_path |
+| DS4 | מאגר פרטי סשן | Detailed rep-by-rep data (PostgreSQL) | detail_id, session_id, rep_number, pose_keypoints, form_score |
+| DS5 | מאגר משוב מערכת | System-generated feedback (PostgreSQL) | feedback_id, session_id, message, feedback_type, timestamp |
+| DS6 | מאגר וידאו | Video file storage (File System) | video_files stored in /videos directory, referenced by video_path in DS3 |
 
 ### Processes (תהליכים)
 | Process | Hebrew Name | Type | Description | Inputs | Outputs |

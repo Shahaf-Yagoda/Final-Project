@@ -1,0 +1,98 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36" version="27.1.6">
+  <diagram id="a74ea_lf8rQN7ROg7Kfd" name="Page-1">
+    <mxGraphModel dx="2593" dy="1658" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Right Motion - Class Diagram" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#1565C0;" parent="1" vertex="1">
+          <mxGeometry x="229" y="30" width="369" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="User" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;User&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(233, 30, 99);&quot;&gt;- user_id: int &amp;lt;&amp;lt;PK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;- email: str &amp;lt;&amp;lt;UNIQUE&amp;gt;&amp;gt;&lt;br&gt;- username: str &amp;lt;&amp;lt;UNIQUE&amp;gt;&amp;gt;&lt;br&gt;- password: str&lt;br&gt;- first_name: str&lt;br&gt;- last_name: str&lt;br&gt;- registration_date: date&lt;br&gt;- registration_time: time&lt;br&gt;- profile_data: JSONB&lt;br&gt;- user_type: user_role_enum&lt;br&gt;- is_active: bool&lt;br&gt;- last_login: datetime&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- created_at: datetime&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- updated_at: datetime&lt;/span&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ register(email, username, password): User&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ authenticate(identifier, password): User&lt;/span&gt;&lt;br&gt;+ get_by_id(user_id: int): User&lt;br&gt;+ hash_password(password: str): str&lt;br&gt;+ verify_password(plain: str, hash: str): bool&lt;br&gt;+ to_dict(): dict&lt;br&gt;+ get_full_name(): str&lt;br&gt;+ deactivate(): void&lt;br&gt;+ update_profile(data: dict): void&lt;br&gt;+ change_role(role: user_role_enum): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=9;fontFamily=Helvetica;html=1;strokeColor=#2196F3;fillColor=#FFFFFF;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="310" y="80" width="220" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="Exercise" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Exercise&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(233, 30, 99);&quot;&gt;- exercise_id: int &amp;lt;&amp;lt;PK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;- exercise_name: str &amp;lt;&amp;lt;UNIQUE&amp;gt;&amp;gt;&lt;br&gt;- category: str&lt;br&gt;- target_muscles: JSONB&lt;br&gt;- instructions: str&lt;br&gt;- difficulty_level: int&lt;br&gt;- equipment_needed: str&lt;br&gt;- is_active: bool&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- created_at: datetime&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- updated_at: datetime&lt;/span&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ get_by_name(name: str): Exercise&lt;br&gt;+ get_all(): List[Exercise]&lt;br&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ create(name, description): Exercise&lt;/span&gt;&lt;br&gt;+ to_dict(): dict&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=9;fontFamily=Helvetica;html=1;strokeColor=#2196F3;fillColor=#FFFFFF;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="504" y="920" width="220" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Workout" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Workout&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(233, 30, 99);&quot;&gt;- workout_id: int &amp;lt;&amp;lt;PK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- user_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;- workout_name: str&lt;br&gt;- description: str&lt;br&gt;- target_muscles: JSONB&lt;br&gt;- difficulty_level: int&lt;br&gt;- estimated_duration: int&lt;br&gt;- is_template: bool&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- created_at: datetime&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- updated_at: datetime&lt;/span&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ create(user_id, name): Workout&lt;/span&gt;&lt;br&gt;+ get_by_user(user_id: int): List[Workout]&lt;br&gt;+ get_by_id(workout_id: int): Workout&lt;br&gt;+ get_sessions(): List[Session]&lt;br&gt;+ complete(): void&lt;br&gt;+ to_dict(): dict&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=9;fontFamily=Helvetica;html=1;strokeColor=#2196F3;fillColor=#FFFFFF;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="600" y="120" width="220" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="Session" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Session&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(233, 30, 99);&quot;&gt;- session_id: int &amp;lt;&amp;lt;PK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- workout_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt; &amp;lt;&amp;lt;NULL&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- exercise_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- user_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;- session_date: date&lt;br&gt;- session_time: time&lt;br&gt;- duration: int&lt;br&gt;- reps: int&lt;br&gt;- sets: int&lt;br&gt;- calories_burned: decimal&lt;br&gt;- session_status: session_status_enum&lt;br&gt;- video_path: str&lt;br&gt;- notes: str&lt;br&gt;- performance_score: decimal&lt;br&gt;- form_accuracy: decimal&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- created_at: datetime&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- updated_at: datetime&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(158, 158, 158);&quot;&gt;- reps_count: int &amp;lt;&amp;lt;legacy&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(158, 158, 158);&quot;&gt;- feedback_count: int &amp;lt;&amp;lt;legacy&amp;gt;&amp;gt;&lt;/span&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ save(): void&lt;br&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ create(exercise_id, user_id): Session&lt;/span&gt;&lt;br&gt;+ load_by_user(user_id: int): List[Session]&lt;br&gt;+ load_by_id(session_id: int): Session&lt;br&gt;+ get_by_workout(workout_id: int): List[Session]&lt;br&gt;+ finish(reps: int, end_time: datetime): void&lt;br&gt;+ get_details(): List[SessionDetails]&lt;br&gt;+ get_feedback(): List[SystemFeedback]&lt;br&gt;+ to_dict(): dict&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=9;fontFamily=Helvetica;html=1;strokeColor=#2196F3;fillColor=#FFFFFF;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="430" y="490" width="280" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="SessionDetails" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;SessionDetails&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(233, 30, 99);&quot;&gt;- detail_id: int &amp;lt;&amp;lt;PK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- session_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;- rep_number: int&lt;br&gt;- timestamp_in_session: decimal&lt;br&gt;- pose_keypoints: JSONB&lt;br&gt;- form_features: JSONB&lt;br&gt;- form_score: decimal&lt;br&gt;- is_correct_form: bool&lt;br&gt;- feedback_message: str&lt;br&gt;- angles: JSONB&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- created_at: datetime&lt;/span&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ create(session_id, rep_number): SessionDetails&lt;/span&gt;&lt;br&gt;+ get_by_session(session_id: int): List[SessionDetails]&lt;br&gt;+ get_session_summary(session_id: int): dict&lt;br&gt;+ get_by_rep(session_id, rep): SessionDetails&lt;br&gt;+ to_dict(): dict&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=9;fontFamily=Helvetica;html=1;strokeColor=#2196F3;fillColor=#FFFFFF;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="230" y="920" width="250" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="SystemFeedback" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;SystemFeedback&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(233, 30, 99);&quot;&gt;- feedback_id: int &amp;lt;&amp;lt;PK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- session_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- user_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;- feedback_type: feedback_type_enum&lt;br&gt;- message: str&lt;br&gt;- severity_level: int&lt;br&gt;- is_automated: bool&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- created_at: datetime&lt;/span&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ create(session_id, message): SystemFeedback&lt;/span&gt;&lt;br&gt;+ get_by_session(session_id: int): List[SystemFeedback]&lt;br&gt;+ get_feedback_summary(session_id: int): dict&lt;br&gt;+ get_form_corrections(session_id: int): List[SystemFeedback]&lt;br&gt;+ to_dict(): dict&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=9;fontFamily=Helvetica;html=1;strokeColor=#2196F3;fillColor=#FFFFFF;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="40" y="630" width="250" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="Comment" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Comment&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(233, 30, 99);&quot;&gt;- comment_id: int &amp;lt;&amp;lt;PK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- session_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(255, 152, 0);&quot;&gt;- user_id: int &amp;lt;&amp;lt;FK&amp;gt;&amp;gt;&lt;/span&gt;&lt;br&gt;- comment_text: str&lt;br&gt;- is_public: bool&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- created_at: datetime&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color: rgb(76, 175, 80);&quot;&gt;- updated_at: datetime&lt;/span&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;&lt;span style=&quot;color: rgb(33, 150, 243);&quot;&gt;+ create(session_id, user_id, text): Comment&lt;/span&gt;&lt;br&gt;+ get_by_session(session_id: int): List[Comment]&lt;br&gt;+ get_by_user(user_id: int): List[Comment]&lt;br&gt;+ to_dict(): dict&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=9;fontFamily=Helvetica;html=1;strokeColor=#2196F3;fillColor=#FFFFFF;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="10" y="360" width="250" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="UserWorkout" value="יוצר&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;edgeStyle=orthogonalEdgeStyle;" parent="1" source="User" target="Workout" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="250" y="160" as="sourcePoint" />
+            <mxPoint x="550" y="160" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UserSession" value="מבצע&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;edgeStyle=orthogonalEdgeStyle;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" parent="1" source="User" target="Session" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="250" y="200" as="sourcePoint" />
+            <mxPoint x="810" y="200" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ExerciseSession" value="מגדיר&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;" parent="1" source="Exercise" target="Session" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="510" y="180" as="sourcePoint" />
+            <mxPoint x="810" y="180" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="WorkoutSession" value="מכיל&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" parent="1" source="Workout" target="Session" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="770" y="200" as="sourcePoint" />
+            <mxPoint x="810" y="220" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SessionDetails_rel" value="מעקב מפורט&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;edgeStyle=orthogonalEdgeStyle;" parent="1" source="Session" target="SessionDetails" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="950" y="400" as="sourcePoint" />
+            <mxPoint x="675" y="440" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SessionFeedback" value="מייצר משוב&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;edgeStyle=orthogonalEdgeStyle;exitX=0;exitY=0.75;exitDx=0;exitDy=0;" parent="1" source="Session" target="SystemFeedback" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="810" y="380" as="sourcePoint" />
+            <mxPoint x="540" y="440" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SessionComment" value="מקבל תגובות&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;edgeStyle=orthogonalEdgeStyle;" parent="1" source="Session" target="Comment" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="810" y="340" as="sourcePoint" />
+            <mxPoint x="280" y="440" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UserFeedback" value="מקבל&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;edgeStyle=orthogonalEdgeStyle;" parent="1" source="User" target="SystemFeedback" edge="1">
+          <mxGeometry x="-0.3289" y="-3" width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="140" y="340" as="sourcePoint" />
+            <mxPoint x="415" y="440" as="targetPoint" />
+            <Array as="points" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UserComment" value="כותב&#xa;1:*" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;endSize=8;startSize=8;strokeColor=#1976D2;strokeWidth=2;fontColor=#1976D2;fontStyle=1;noEdgeStyle=1;orthogonal=1;edgeStyle=orthogonalEdgeStyle;" parent="1" source="User" target="Comment" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="140" y="340" as="sourcePoint" />
+            <mxPoint x="155" y="440" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
