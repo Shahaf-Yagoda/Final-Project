@@ -82,7 +82,7 @@ class Comment:
                     SELECT c.comment_id, c.session_id, c.user_id, c.timestamp, c.comment_text,
                            u.username, u.first_name, u.last_name, u.user_type
                     FROM Comment c
-                    JOIN "User" u ON c.user_id = u.user_id
+                    JOIN users u ON c.user_id = u.user_id
                     WHERE c.session_id = %s 
                     ORDER BY c.timestamp
                 """, (session_id,))
@@ -119,7 +119,7 @@ class Comment:
                            u.username, u.first_name, u.last_name, u.user_type,
                            s.exercise_id, e.name as exercise_name
                     FROM Comment c
-                    JOIN "User" u ON c.user_id = u.user_id
+                    JOIN users u ON c.user_id = u.user_id
                     JOIN Session s ON c.session_id = s.session_id
                     JOIN Exercise e ON s.exercise_id = e.exercise_id
                     ORDER BY c.timestamp DESC

@@ -70,7 +70,7 @@ class User:
             with conn.cursor() as cur:
                 now = datetime.now()
                 cur.execute("""
-                    INSERT INTO "User" (email, username, password, registration_date, 
+                    INSERT INTO users (email, username, password, registration_date, 
                                        registration_time, profile_data, user_type, 
                                        first_name, last_name, is_active, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING user_id
@@ -100,14 +100,14 @@ class User:
                     SELECT user_id, email, username, password, registration_date, 
                            registration_time, profile_data, user_type, created_at, updated_at,
                            first_name, last_name, last_login, is_active
-                    FROM "User"
+                    FROM users
                     WHERE (email = %s OR username = %s) AND is_active = TRUE
                 """, (identifier, identifier))
                 row = cur.fetchone()
                 if row and cls.verify_password(password, row[3]):
                     # Update last_login
                     cur.execute("""
-                        UPDATE "User" SET last_login = %s WHERE user_id = %s
+                        UPDATE users SET last_login = %s WHERE user_id = %s
                     """, (datetime.now(), row[0]))
                     conn.commit()
                     
@@ -133,7 +133,7 @@ class User:
                     SELECT user_id, email, username, password, registration_date, 
                            registration_time, profile_data, user_type, created_at, updated_at,
                            first_name, last_name, last_login, is_active
-                    FROM "User" WHERE user_id = %s
+                    FROM users WHERE user_id = %s
                 """, (user_id,))
                 row = cur.fetchone()
                 if row:
@@ -183,7 +183,7 @@ class User:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE "User" 
+                    UPDATE users 
                     SET is_active = FALSE, updated_at = %s 
                     WHERE user_id = %s
                 """, (datetime.now(), self.user_id))
@@ -203,7 +203,7 @@ class User:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE "User" 
+                    UPDATE users 
                     SET profile_data = %s, updated_at = %s 
                     WHERE user_id = %s
                 """, (json.dumps(profile_data), datetime.now(), self.user_id))
@@ -225,7 +225,7 @@ class User:
             try:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        UPDATE "User" 
+                        UPDATE users 
                         SET role = %s, updated_at = %s 
                         WHERE user_id = %s
                     """, (new_role, datetime.now(), self.user_id))

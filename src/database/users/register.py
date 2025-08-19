@@ -13,12 +13,12 @@ def register_user(email, username, password, profile_data=None, role="user"):
         cursor = conn.cursor()
 
         # Check if email already exists
-        cursor.execute('SELECT 1 FROM "User" WHERE email = %s;', (email,))
+        cursor.execute('SELECT 1 FROM users WHERE email = %s;', (email,))
         if cursor.fetchone():
             return "Error: Email already exists."
 
         # Check if username already exists
-        cursor.execute('SELECT 1 FROM "User" WHERE username = %s;', (username,))
+        cursor.execute('SELECT 1 FROM users WHERE username = %s;', (username,))
         if cursor.fetchone():
             return "Error: Username already exists."
 
@@ -29,7 +29,7 @@ def register_user(email, username, password, profile_data=None, role="user"):
 
         # Insert into User table
         insert_user = """
-        INSERT INTO "User" (email, username, password, registration_date, profile_data, role)
+        INSERT INTO users (email, username, password, registration_date, profile_data, role)
         VALUES (%s, %s, %s, NOW(), %s, %s)
         RETURNING user_id;
         """

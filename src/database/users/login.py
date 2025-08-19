@@ -14,7 +14,7 @@ def login_user(identifier, password):
         # 1. Get user by email or username
         cursor.execute("""
             SELECT user_id, username, password
-            FROM "User"
+            FROM users
             WHERE email = %s OR username = %s
         """, (identifier, identifier))
         record = cursor.fetchone()
@@ -30,7 +30,7 @@ def login_user(identifier, password):
 
         # 3. Update last login timestamp
         cursor.execute("""
-            UPDATE "User"
+            UPDATE users
             SET registration_date = %s
             WHERE user_id = %s
         """, (datetime.now(), user_id))  # Optional: rename this field to `last_login`
