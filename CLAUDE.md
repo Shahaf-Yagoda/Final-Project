@@ -33,16 +33,29 @@ This is a fitness tracking application called "Right Motion" that uses computer 
 
 ### Environment Setup
 ```bash
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install dependencies
 pip install -r requirements.txt
 
 # Set environment variables for database connection
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python  # Required for streamlit compatibility
+
+# Copy and configure environment file
+cp .env.example .env  # Edit with your database settings
 ```
 
 ### Running the Application
 ```bash
-# Start the main Streamlit application
+# IMPORTANT: Always activate virtual environment first
+source venv/bin/activate
+
+# Option 1: Use startup script (recommended)
+./start_app.sh
+
+# Option 2: Manual start
 streamlit run src/app/app.py
 
 # Run standalone exercise session (command line)

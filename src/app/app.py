@@ -44,14 +44,23 @@ def is_port_open(port):
 # Launch video_streamer.py if Flask not already running
 if not is_port_open(5050) and "video_streamer_started" not in st.session_state:
     try:
-        # Use python3 and set PYTHONPATH to ensure all modules are found
+        # Use the same Python interpreter as Streamlit and set PYTHONPATH
         env = os.environ.copy()
         env['PYTHONPATH'] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        subprocess.Popen(["python3", "-m", "src.app.video_streamer"], env=env)
+        
+        # Try to detect virtual environment python
+        python_cmd = sys.executable
+        if not python_cmd or 'python' not in python_cmd:
+            python_cmd = "python3"
+            
+        print(f"🐍 Using Python: {python_cmd}")
+        subprocess.Popen([python_cmd, "-m", "src.app.video_streamer"], env=env)
         st.session_state["video_streamer_started"] = True
         print("✅ video_streamer.py started.")
     except Exception as e:
         print("❌ Failed to start video_streamer.py:", e)
+        print(f"🐍 Python executable: {sys.executable}")
+        print("💡 Try running: source venv/bin/activate && streamlit run src/app/app.py")
 
 # Remove duplicate imports - using the ones from db_utils instead
 from datetime import datetime

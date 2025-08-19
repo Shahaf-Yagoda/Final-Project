@@ -1,6 +1,17 @@
 # video_streamer.py
-from flask import Flask, Response, request, jsonify, send_file
-from flask_cors import CORS
+import sys
+import os
+
+# Add error handling for imports
+try:
+    from flask import Flask, Response, request, jsonify, send_file
+    from flask_cors import CORS
+except ImportError as e:
+    print(f"❌ Import Error: {e}")
+    print(f"Python executable: {sys.executable}")
+    print(f"Python path: {sys.path}")
+    print("💡 Try: pip install flask flask-cors")
+    sys.exit(1)
 import cv2
 import time
 import os
@@ -193,19 +204,44 @@ class VideoStreamManager:
         
         return frame
     
-    def setup_video_recording(self, user_id: int, exercise: str, cap: cv2.VideoCapture) -> cv2.VideoWriter:
+    def setup_video_recording(self, user_id: int, exercise: str, cap: cv2.VideoCapture) -> Optional[cv2.VideoWriter]:
         """Setup video recording for the session with improved codec handling."""
-        temp_video_path = f"/tmp/user{user_id}_session.mp4"
+        import tempfile
+        import platform
+        
+        # Use appropriate temp directory for the platform
+        system = platform.system().lower()
+        if system == 'windows':
+            temp_dir = tempfile.gettempdir()
+            temp_video_path = os.path.join(temp_dir, f"user{user_id}_session.mp4")
+        else:
+            temp_video_path = f"/tmp/user{user_id}_session.mp4"
+            
         self.video_temp_paths[(user_id, exercise)] = temp_video_path
         
-        # Use same codec priority as Analyze Video page for consistency
-        fourcc_options = [
-            cv2.VideoWriter_fourcc(*'H264'),  # H.264 (best browser support)
-            cv2.VideoWriter_fourcc(*'avc1'),  # H.264 alternative
-            cv2.VideoWriter_fourcc(*'XVID'),  # XVID (good compatibility)
-            cv2.VideoWriter_fourcc(*'mp4v'),  # MPEG-4 (fallback)
-            cv2.VideoWriter_fourcc(*'MJPG'),  # Motion JPEG (last resort)
-        ]
+        # Platform-specific codec priority for better Windows compatibility
+        
+        if system == 'windows':
+            fourcc_options = [
+                cv2.VideoWriter_fourcc(*'MJPG'),  # Motion JPEG (best Windows support)
+                cv2.VideoWriter_fourcc(*'XVID'),  # XVID (good Windows compatibility)
+                cv2.VideoWriter_fourcc(*'mp4v'),  # MPEG-4 (fallback)
+                cv2.VideoWriter_fourcc(*'H264'),  # H.264 (if available)
+                cv2.VideoWriter_fourcc(*'avc1'),  # H.264 alternative
+                cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),  # Alternative MJPG format
+                cv2.VideoWriter_fourcc('D', 'I', 'V', 'X'),  # DivX codec
+                cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'),  # Alternative XVID
+                -1,  # Default codec (last resort)
+            ]
+        else:
+            # macOS/Linux codec priority
+            fourcc_options = [
+                cv2.VideoWriter_fourcc(*'H264'),  # H.264 (best browser support)
+                cv2.VideoWriter_fourcc(*'avc1'),  # H.264 alternative
+                cv2.VideoWriter_fourcc(*'XVID'),  # XVID (good compatibility)
+                cv2.VideoWriter_fourcc(*'mp4v'),  # MPEG-4 (fallback)
+                cv2.VideoWriter_fourcc(*'MJPG'),  # Motion JPEG (last resort)
+            ]
         
         fps = cap.get(cv2.CAP_PROP_FPS) or 25
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -219,22 +255,34 @@ class VideoStreamManager:
         
         # Try each codec until one works
         out = None
+        print(f"🎬 Attempting video recording setup:")
+        print(f"   Platform: {system}")
+        print(f"   Video path: {temp_video_path}")
+        print(f"   Dimensions: {width}x{height}")
+        print(f"   FPS: {fps}")
         
-        for fourcc in fourcc_options:
+        for i, fourcc in enumerate(fourcc_options):
             try:
+                codec_name = f"codec_{i}" if fourcc == -1 else str(fourcc)
+                print(f"   Trying codec {i+1}/{len(fourcc_options)}: {codec_name}")
+                
                 test_out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
                 if test_out.isOpened():
                     out = test_out
-                    print(f"✅ Successfully initialized video recording with codec: {fourcc}")
+                    print(f"✅ Successfully initialized video recording with codec: {codec_name}")
                     break
                 else:
                     test_out.release()
+                    print(f"   ❌ Codec {codec_name} failed to open")
             except Exception as e:
-                print(f"⚠️ Failed to initialize with codec {fourcc}: {e}")
+                print(f"   ⚠️ Exception with codec {codec_name}: {e}")
                 continue
         
         if out is None:
-            raise RuntimeError("❌ Failed to initialize video writer with any supported codec")
+            print("❌ All codecs failed. Attempting fallback without video recording...")
+            # Create a dummy video writer that doesn't actually record
+            print("⚠️ Running in NO-VIDEO mode - session will work but no video will be saved")
+            return None  # Signal that video recording is disabled
         
         self.video_writers[(user_id, exercise)] = out
         return out
@@ -261,14 +309,19 @@ class VideoStreamManager:
                     break
                 
                 processed_frame = self.process_frame(frame, exercise, user_id)
-                out.write(processed_frame)
+                
+                # Only write to video if recording is enabled
+                if out is not None:
+                    out.write(processed_frame)
                 
                 _, buffer = cv2.imencode('.jpg', processed_frame)
                 frame_bytes = buffer.tobytes()
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
         finally:
-            out.release()
+            # Only release if video writer was successfully created
+            if out is not None:
+                out.release()
             cap.release()
     
     def stop_session(self, user_id: int, exercise: str) -> Optional[str]:
