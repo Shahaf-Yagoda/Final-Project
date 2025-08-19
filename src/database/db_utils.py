@@ -8,7 +8,7 @@ def get_exercise_id_by_name(exercise_name):
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT exercise_id FROM Exercise WHERE name = %s", (exercise_name,))
+                "SELECT exercise_id FROM exercises WHERE name = %s", (exercise_name,))
             row = cursor.fetchone()
             if row:
                 return row[0]
@@ -29,7 +29,7 @@ def save_session_to_db(user_id, exercise_name, start_time, end_time, reps_count,
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO Session (user_id, exercise_id, start_time, end_time, duration, actual_reps, 
+                INSERT INTO sessions (user_id, exercise_id, start_time, end_time, duration, actual_reps, 
                                     video_path, workout_id, session_order, planned_reps, session_status,
                                     created_at, updated_at,
                                     -- Legacy fields for backward compatibility
@@ -63,7 +63,7 @@ def save_session_details_to_db(session_id, timestamp, rep_num, keypoints_json,
             
             cursor.execute(
                 """
-                INSERT INTO SessionDetails (session_id, timestamp, rep_number, keypoints_json, features_json, 
+                INSERT INTO session_details (session_id, timestamp, rep_number, keypoints_json, features_json, 
                                            is_correct_form, incorrect_duration,
                                            -- Legacy fields for backward compatibility
                                            rep_num, is_correct)
@@ -96,7 +96,7 @@ def save_system_feedback_to_db(session_id, timestamp, message, feedback_type='fo
             
             cursor.execute(
                 """
-                INSERT INTO SystemFeedback (session_id, timestamp, message, feedback_type, related_rep)
+                INSERT INTO system_feedback (session_id, timestamp, message, feedback_type, related_rep)
                 VALUES (%s, %s, %s, %s, %s)
                 """,
                 (
@@ -122,7 +122,7 @@ def save_comment_to_db(session_id, user_id, timestamp, comment):
             
             cursor.execute(
                 """
-                INSERT INTO Comment (session_id, user_id, timestamp, comment_text,
+                INSERT INTO comments (session_id, user_id, timestamp, comment_text,
                                    -- Legacy field for backward compatibility
                                    comment)
                 VALUES (%s, %s, %s, %s, %s)

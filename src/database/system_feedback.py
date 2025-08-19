@@ -22,7 +22,7 @@ class SystemFeedback:
             with conn.cursor() as cur:
                 timestamp = timestamp or datetime.now()
                 cur.execute("""
-                    INSERT INTO SystemFeedback (session_id, timestamp, feedback_type, message, related_rep)
+                    INSERT INTO system_feedback (session_id, timestamp, feedback_type, message, related_rep)
                     VALUES (%s, %s, %s, %s, %s) RETURNING feedback_id
                 """, (session_id, timestamp, feedback_type, message, related_rep))
                 feedback_id = cur.fetchone()[0]
@@ -46,7 +46,7 @@ class SystemFeedback:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT feedback_id, session_id, timestamp, feedback_type, message, related_rep
-                    FROM SystemFeedback 
+                    FROM system_feedback 
                     WHERE session_id = %s 
                     ORDER BY timestamp
                 """, (session_id,))
@@ -63,7 +63,7 @@ class SystemFeedback:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT feedback_id, session_id, timestamp, feedback_type, message, related_rep
-                    FROM SystemFeedback 
+                    FROM system_feedback 
                     WHERE session_id = %s AND feedback_type = %s 
                     ORDER BY timestamp
                 """, (session_id, feedback_type))
@@ -80,7 +80,7 @@ class SystemFeedback:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT feedback_id, session_id, timestamp, feedback_type, message, related_rep
-                    FROM SystemFeedback 
+                    FROM system_feedback 
                     WHERE session_id = %s AND related_rep = %s 
                     ORDER BY timestamp
                 """, (session_id, rep_number))
@@ -101,7 +101,7 @@ class SystemFeedback:
                         COUNT(*) as count,
                         MIN(timestamp) as first_occurrence,
                         MAX(timestamp) as last_occurrence
-                    FROM SystemFeedback 
+                    FROM system_feedback 
                     WHERE session_id = %s 
                     GROUP BY feedback_type
                     ORDER BY count DESC
@@ -140,7 +140,7 @@ class SystemFeedback:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE SystemFeedback 
+                    UPDATE system_feedback 
                     SET feedback_type = %s
                     WHERE feedback_id = %s
                 """, (feedback_type, self.feedback_id))

@@ -44,7 +44,10 @@ def is_port_open(port):
 # Launch video_streamer.py if Flask not already running
 if not is_port_open(5050) and "video_streamer_started" not in st.session_state:
     try:
-        subprocess.Popen([sys.executable, "-m", "src.app.video_streamer"])
+        # Use python3 and set PYTHONPATH to ensure all modules are found
+        env = os.environ.copy()
+        env['PYTHONPATH'] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        subprocess.Popen(["python3", "-m", "src.app.video_streamer"], env=env)
         st.session_state["video_streamer_started"] = True
         print("✅ video_streamer.py started.")
     except Exception as e:

@@ -21,7 +21,7 @@ class Comment:
             with conn.cursor() as cur:
                 timestamp = timestamp or datetime.now()
                 cur.execute("""
-                    INSERT INTO Comment (session_id, user_id, timestamp, comment_text)
+                    INSERT INTO comments (session_id, user_id, timestamp, comment_text)
                     VALUES (%s, %s, %s, %s) RETURNING comment_id
                 """, (session_id, user_id, timestamp, comment_text))
                 comment_id = cur.fetchone()[0]
@@ -45,7 +45,7 @@ class Comment:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT c.comment_id, c.session_id, c.user_id, c.timestamp, c.comment_text
-                    FROM Comment c
+                    FROM comments c
                     WHERE c.session_id = %s 
                     ORDER BY c.timestamp
                 """, (session_id,))
@@ -62,7 +62,7 @@ class Comment:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT comment_id, session_id, user_id, timestamp, comment_text
-                    FROM Comment 
+                    FROM comments 
                     WHERE user_id = %s 
                     ORDER BY timestamp DESC
                     LIMIT %s
@@ -81,7 +81,7 @@ class Comment:
                 cur.execute("""
                     SELECT c.comment_id, c.session_id, c.user_id, c.timestamp, c.comment_text,
                            u.username, u.first_name, u.last_name, u.user_type
-                    FROM Comment c
+                    FROM comments c
                     JOIN users u ON c.user_id = u.user_id
                     WHERE c.session_id = %s 
                     ORDER BY c.timestamp
@@ -118,10 +118,10 @@ class Comment:
                     SELECT c.comment_id, c.session_id, c.user_id, c.timestamp, c.comment_text,
                            u.username, u.first_name, u.last_name, u.user_type,
                            s.exercise_id, e.name as exercise_name
-                    FROM Comment c
+                    FROM comments c
                     JOIN users u ON c.user_id = u.user_id
-                    JOIN Session s ON c.session_id = s.session_id
-                    JOIN Exercise e ON s.exercise_id = e.exercise_id
+                    JOIN sessions s ON c.session_id = s.session_id
+                    JOIN exercises e ON s.exercise_id = e.exercise_id
                     ORDER BY c.timestamp DESC
                     LIMIT %s
                 """, (limit,))
@@ -157,7 +157,7 @@ class Comment:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE Comment 
+                    UPDATE comments 
                     SET comment_text = %s
                     WHERE comment_id = %s
                 """, (comment_text, self.comment_id))
@@ -176,7 +176,7 @@ class Comment:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    DELETE FROM Comment 
+                    DELETE FROM comments 
                     WHERE comment_id = %s
                 """, (self.comment_id,))
                 conn.commit()

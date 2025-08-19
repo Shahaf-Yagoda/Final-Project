@@ -37,7 +37,7 @@ class SessionDetails:
             with conn.cursor() as cur:
                 timestamp = timestamp or datetime.now()
                 cur.execute("""
-                    INSERT INTO SessionDetails (session_id, rep_number, timestamp, features_json, 
+                    INSERT INTO session_details (session_id, rep_number, timestamp, features_json, 
                                                is_correct_form, incorrect_duration)
                     VALUES (%s, %s, %s, %s, %s, %s) RETURNING detail_id
                 """, (session_id, rep_number, timestamp, json.dumps(features_json),
@@ -65,7 +65,7 @@ class SessionDetails:
                 cur.execute("""
                     SELECT detail_id, session_id, rep_number, timestamp, features_json, 
                            is_correct_form, incorrect_duration
-                    FROM SessionDetails 
+                    FROM session_details 
                     WHERE session_id = %s 
                     ORDER BY timestamp, rep_number
                 """, (session_id,))
@@ -83,7 +83,7 @@ class SessionDetails:
                 cur.execute("""
                     SELECT detail_id, session_id, rep_number, timestamp, features_json, 
                            is_correct_form, incorrect_duration
-                    FROM SessionDetails 
+                    FROM session_details 
                     WHERE session_id = %s AND rep_number = %s 
                     ORDER BY timestamp
                 """, (session_id, rep_number))
@@ -106,7 +106,7 @@ class SessionDetails:
                         SUM(incorrect_duration) as total_incorrect_duration,
                         MIN(timestamp) as first_timestamp,
                         MAX(timestamp) as last_timestamp
-                    FROM SessionDetails 
+                    FROM session_details 
                     WHERE session_id = %s
                 """, (session_id,))
                 row = cur.fetchone()
@@ -141,14 +141,14 @@ class SessionDetails:
             with conn.cursor() as cur:
                 if incorrect_duration is not None:
                     cur.execute("""
-                        UPDATE SessionDetails 
+                        UPDATE session_details 
                         SET is_correct_form = %s, incorrect_duration = %s
                         WHERE detail_id = %s
                     """, (is_correct_form, incorrect_duration, self.detail_id))
                     self.incorrect_duration = incorrect_duration
                 else:
                     cur.execute("""
-                        UPDATE SessionDetails 
+                        UPDATE session_details 
                         SET is_correct_form = %s
                         WHERE detail_id = %s
                     """, (is_correct_form, self.detail_id))

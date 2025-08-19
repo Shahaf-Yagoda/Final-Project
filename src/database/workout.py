@@ -28,7 +28,7 @@ class Workout:
             with conn.cursor() as cur:
                 now = datetime.now()
                 cur.execute("""
-                    INSERT INTO Workout (user_id, workout_date, start_time, created_at, updated_at)
+                    INSERT INTO workouts (user_id, workout_date, start_time, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, %s) RETURNING workout_id
                 """, (user_id, workout_date, start_time, now, now))
                 workout_id = cur.fetchone()[0]
@@ -53,7 +53,7 @@ class Workout:
                 cur.execute("""
                     SELECT workout_id, user_id, workout_date, start_time, end_time, 
                            total_duration, created_at, updated_at
-                    FROM Workout WHERE workout_id = %s
+                    FROM workouts WHERE workout_id = %s
                 """, (workout_id,))
                 row = cur.fetchone()
                 if row:
@@ -71,7 +71,7 @@ class Workout:
                 cur.execute("""
                     SELECT workout_id, user_id, workout_date, start_time, end_time, 
                            total_duration, created_at, updated_at
-                    FROM Workout 
+                    FROM workouts 
                     WHERE user_id = %s 
                     ORDER BY workout_date DESC, start_time DESC
                     LIMIT %s
@@ -94,7 +94,7 @@ class Workout:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE Workout 
+                    UPDATE workouts 
                     SET end_time = %s, total_duration = %s, updated_at = %s
                     WHERE workout_id = %s
                 """, (end_time, duration, datetime.now(), self.workout_id))

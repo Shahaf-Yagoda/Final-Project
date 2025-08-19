@@ -36,7 +36,7 @@ class Exercise:
             with conn.cursor() as cur:
                 now = datetime.now()
                 cur.execute("""
-                    INSERT INTO Exercise (name, description, target_muscles, instructions, created_at, updated_at)
+                    INSERT INTO exercises (name, description, target_muscles, instructions, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, %s, %s) RETURNING exercise_id
                 """, (name, description, json.dumps(target_muscles) if target_muscles else None, 
                       instructions, now, now))
@@ -62,7 +62,7 @@ class Exercise:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
-                    FROM Exercise WHERE exercise_id = %s
+                    FROM exercises WHERE exercise_id = %s
                 """, (exercise_id,))
                 row = cur.fetchone()
                 if row:
@@ -79,7 +79,7 @@ class Exercise:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
-                    FROM Exercise WHERE name = %s
+                    FROM exercises WHERE name = %s
                 """, (name,))
                 row = cur.fetchone()
                 if row:
@@ -96,7 +96,7 @@ class Exercise:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
-                    FROM Exercise ORDER BY name
+                    FROM exercises ORDER BY name
                 """)
                 rows = cur.fetchall()
                 return [cls(*row) for row in rows]
@@ -111,7 +111,7 @@ class Exercise:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
-                    FROM Exercise 
+                    FROM exercises 
                     WHERE target_muscles::text ILIKE %s
                     ORDER BY name
                 """, (f'%{muscle_group}%',))
@@ -150,7 +150,7 @@ class Exercise:
                     params.append(datetime.now())
                     params.append(self.exercise_id)
                     
-                    query = f"UPDATE Exercise SET {', '.join(updates)} WHERE exercise_id = %s"
+                    query = f"UPDATE exercises SET {', '.join(updates)} WHERE exercise_id = %s"
                     cur.execute(query, params)
                     conn.commit()
                     self.updated_at = datetime.now()

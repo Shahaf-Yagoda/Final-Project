@@ -39,7 +39,7 @@ class Session:
                 if self.session_id is None:
                     # Insert new session (using legacy column names for compatibility)
                     cur.execute("""
-                        INSERT INTO Session (workout_id, exercise_id, user_id, session_order,
+                        INSERT INTO sessions (workout_id, exercise_id, user_id, session_order,
                                            start_time, end_time, duration_sec, planned_reps, actual_reps,
                                            session_status, video_path, created_at, updated_at,
                                            reps_count, feedback_count, performance_score)
@@ -56,7 +56,7 @@ class Session:
                 else:
                     # Update existing session
                     cur.execute("""
-                        UPDATE Session SET workout_id = %s, exercise_id = %s, user_id = %s,
+                        UPDATE sessions SET workout_id = %s, exercise_id = %s, user_id = %s,
                                session_order = %s, start_time = %s, end_time = %s, duration_sec = %s,
                                planned_reps = %s, actual_reps = %s, session_status = %s,
                                video_path = %s, updated_at = %s, reps_count = %s
@@ -106,7 +106,7 @@ class Session:
                     SELECT session_id, workout_id, exercise_id, user_id, session_order,
                            start_time, end_time, duration_sec, planned_reps, actual_reps,
                            session_status, video_path, created_at, updated_at
-                    FROM Session WHERE user_id = %s ORDER BY start_time DESC LIMIT %s
+                    FROM sessions WHERE user_id = %s ORDER BY start_time DESC LIMIT %s
                 """, (user_id, limit))
                 sessions = []
                 for row in cur.fetchall():
@@ -131,7 +131,7 @@ class Session:
                     SELECT session_id, workout_id, exercise_id, user_id, session_order,
                            start_time, end_time, duration_sec, planned_reps, actual_reps,
                            session_status, video_path, created_at, updated_at
-                    FROM Session WHERE session_id = %s
+                    FROM sessions WHERE session_id = %s
                 """, (session_id,))
                 row = cur.fetchone()
                 if row:
@@ -155,7 +155,7 @@ class Session:
                     SELECT session_id, workout_id, exercise_id, user_id, session_order,
                            start_time, end_time, duration_sec, planned_reps, actual_reps,
                            session_status, video_path, created_at, updated_at
-                    FROM Session WHERE workout_id = %s ORDER BY session_order, start_time
+                    FROM sessions WHERE workout_id = %s ORDER BY session_order, start_time
                 """, (workout_id,))
                 sessions = []
                 for row in cur.fetchall():

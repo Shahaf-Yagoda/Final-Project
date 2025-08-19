@@ -15,13 +15,13 @@ def clear_tables():
     try:
         with conn.cursor() as cur:
             # Get counts before clearing
-            cur.execute("SELECT COUNT(*) FROM SessionDetails;")
+            cur.execute("SELECT COUNT(*) FROM session_details;")
             sessiondetails_count = cur.fetchone()[0]
             
-            cur.execute("SELECT COUNT(*) FROM SystemFeedback;")
+            cur.execute("SELECT COUNT(*) FROM system_feedback;")
             systemfeedback_count = cur.fetchone()[0]
             
-            cur.execute("SELECT COUNT(*) FROM Session;")
+            cur.execute("SELECT COUNT(*) FROM sessions;")
             session_count = cur.fetchone()[0]
             
             print(f"📊 Found {session_count} Session records")
@@ -30,14 +30,14 @@ def clear_tables():
             
             # Clear the tables (order matters due to foreign keys)
             # Clear child tables first
-            cur.execute("DELETE FROM SessionDetails;")
+            cur.execute("DELETE FROM session_details;")
             sessiondetails_deleted = cur.rowcount
             
-            cur.execute("DELETE FROM SystemFeedback;")
+            cur.execute("DELETE FROM system_feedback;")
             systemfeedback_deleted = cur.rowcount
             
             # Clear parent table last
-            cur.execute("DELETE FROM Session;")
+            cur.execute("DELETE FROM sessions;")
             session_deleted = cur.rowcount
             
             # Reset sequences to start from 1
