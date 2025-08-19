@@ -14,6 +14,7 @@ from src.database.database_connection import get_connection
 from src.database.session import Session
 from src.database.session_details import SessionDetails
 from src.database.system_feedback import SystemFeedback
+from src.utils.temp_paths import get_user_session_video_path
 
 mp_drawing = get_mp_drawing_utils()
 mp_pose = get_mp_pose_solutions()
@@ -53,7 +54,7 @@ class ExerciseSession:
         if not self.save_video:
             return None
             
-        self.temp_video_path = f"/tmp/user{self.user_id}_{self.exercise_name}_session.mp4"
+        self.temp_video_path = get_user_session_video_path(self.user_id, self.exercise_name)
         
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0

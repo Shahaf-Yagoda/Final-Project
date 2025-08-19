@@ -9,8 +9,10 @@ import cv2
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from video_streamer import VideoStreamManager
+from src.utils.temp_paths import get_user_reps_path, get_user_session_video_path
 
 
 class TestVideoStreamManager(unittest.TestCase):
@@ -71,7 +73,7 @@ class TestVideoStreamManager(unittest.TestCase):
         """Test saving reps to temporary file."""
         self.manager.save_reps_to_tempfile(123, 5)
         
-        mock_file.assert_called_once_with("/tmp/reps_123.txt", "w")
+        mock_file.assert_called_once_with(get_user_reps_path(123), "w")
         mock_file().write.assert_called_once_with("5")
     
     @patch('builtins.open', new_callable=mock_open)
@@ -234,7 +236,7 @@ class TestVideoStreamManager(unittest.TestCase):
     def test_stop_session(self, mock_strftime, mock_move, mock_makedirs, mock_exists):
         """Test session stopping and video file handling."""
         # Set up temp video path
-        self.manager.video_temp_paths[(123, "lunge")] = "/tmp/user123_session.mp4"
+        self.manager.video_temp_paths[(123, "lunge")] = get_user_session_video_path(123)
         
         # Mock file operations
         mock_exists.return_value = True
@@ -251,7 +253,7 @@ class TestVideoStreamManager(unittest.TestCase):
             # Verify operations
             mock_makedirs.assert_called_once_with("/project/videos", exist_ok=True)
             mock_move.assert_called_once_with(
-                "/tmp/user123_session.mp4", 
+                get_user_session_video_path(123), 
                 "/project/videos/user123_session_20240101_120000.mp4"
             )
             self.assertEqual(result, "/project/videos/user123_session_20240101_120000.mp4")

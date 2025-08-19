@@ -23,6 +23,14 @@ from src.database.session import Session
 from src.database.session_details import SessionDetails
 from src.database.system_feedback import SystemFeedback
 from src.database.workout import Workout
+from src.utils.temp_paths import (
+    get_user_reps_path,
+    get_user_session_details_path, 
+    get_user_feedback_path,
+    get_user_session_video_path,
+    get_temp_path,
+    TEMP_DIR
+)
 from src.processing.forms_check import check_form
 from src.database.database_connection import get_connection
 
@@ -69,7 +77,7 @@ import time
 
 def get_reps_count_from_tempfile(user_id):
     try:
-        with open(f"/tmp/reps_{user_id}.txt", "r") as f:
+        with open(get_user_reps_path(user_id), "r") as f:
             reps = int(f.read().strip())
             return reps
     except Exception as e:
@@ -77,7 +85,7 @@ def get_reps_count_from_tempfile(user_id):
         return 0
 
 def get_session_details_from_temp(user_id):
-    details_file = f"/tmp/sessiondetails_{user_id}.json"
+    details_file = get_user_session_details_path(user_id)
     if not os.path.exists(details_file):
         return []
     
@@ -117,7 +125,7 @@ def get_session_details_from_temp(user_id):
             # Try to read from fallback files
             try:
                 import glob
-                fallback_files = glob.glob(f"/tmp/sessiondetails_{user_id}_*.json")
+                fallback_files = glob.glob(os.path.join(TEMP_DIR, f"sessiondetails_{user_id}_*.json"))
                 details = []
                 for fallback_file in fallback_files:
                     try:
@@ -134,7 +142,7 @@ def get_session_details_from_temp(user_id):
                 return []
 
 def get_feedback_from_temp(user_id):
-    feedback_file = f"/tmp/feedback_{user_id}.json"
+    feedback_file = get_user_feedback_path(user_id)
     if not os.path.exists(feedback_file):
         return []
     
@@ -173,7 +181,7 @@ def get_feedback_from_temp(user_id):
             # Try to read from fallback files
             try:
                 import glob
-                fallback_files = glob.glob(f"/tmp/feedback_{user_id}_*.json")
+                fallback_files = glob.glob(os.path.join(TEMP_DIR, f"feedback_{user_id}_*.json"))
                 feedback = []
                 for fallback_file in fallback_files:
                     try:
@@ -882,9 +890,9 @@ elif st.session_state.page == "LiveExercise":
                 st.session_state["start_streaming"] = False
                 st.session_state["stop_time"] = datetime.now().isoformat()
                 try:
-                    with open(f"/tmp/reps_{user_id}.txt") as f:
+                    with open(get_user_reps_path(user_id)) as f:
                         reps = int(f.read().strip())
-                        os.remove(f"/tmp/reps_{user_id}.txt")
+                        os.remove(get_user_reps_path(user_id))
                         st.session_state["reps_count"] = reps
                 except:
                     reps = 234  # fallback if file not found
@@ -900,7 +908,7 @@ elif st.session_state.page == "LiveExercise":
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 video_filename = f"user{user_id}_session_{timestamp}.mp4"
                 video_path = os.path.join(videos_dir, video_filename)
-                temp_video_path = f"/tmp/user{user_id}_session.mp4"
+                temp_video_path = get_user_session_video_path(user_id)
 
                 # Move video file in a background thread
                 if os.path.exists(temp_video_path):
@@ -961,21 +969,21 @@ elif st.session_state.page == "LiveExercise":
                     except Exception as e:
                         print(f"Error saving session detail: {e}")
                 # Clean up temp files after saving
-                details_file = f"/tmp/sessiondetails_{user_id}.json"
+                details_file = get_user_session_details_path(user_id)
                 if os.path.exists(details_file):
                     os.remove(details_file)
                     
                 # Also clean up any fallback files
                 try:
                     import glob
-                    fallback_files = glob.glob(f"/tmp/sessiondetails_{user_id}_*.json")
+                    fallback_files = glob.glob(os.path.join(TEMP_DIR, f"sessiondetails_{user_id}_*.json"))
                     for fallback_file in fallback_files:
                         try:
                             os.remove(fallback_file)
                         except Exception:
                             pass
                     
-                    feedback_fallback_files = glob.glob(f"/tmp/feedback_{user_id}_*.json")
+                    feedback_fallback_files = glob.glob(os.path.join(TEMP_DIR, f"feedback_{user_id}_*.json"))
                     for fallback_file in feedback_fallback_files:
                         try:
                             os.remove(fallback_file)

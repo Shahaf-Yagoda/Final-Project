@@ -13,6 +13,8 @@ from datetime import datetime
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
+from src.utils.temp_paths import get_temp_path
+
 from src.processing.forms_check import check_form
 from src.database.session import Session
 
@@ -136,7 +138,7 @@ class TestVideoUpload(unittest.TestCase):
             exercise_id=1,  # Use exercise_id instead of exercise
             start_time=datetime.now(),
             end_time=datetime.now(),
-            video_path="/tmp/test.mp4",
+            video_path=get_temp_path("test.mp4"),
             reps_count=5,
             feedback_count=2
         )

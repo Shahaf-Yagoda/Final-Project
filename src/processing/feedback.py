@@ -5,6 +5,9 @@ from playsound import playsound
 import uuid
 import os
 import streamlit as st
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.utils.temp_paths import get_audio_temp_path
 
 audio_lock = threading.Lock()
 
@@ -31,7 +34,7 @@ def speak(text):
     try:
         print(f"[VOICE] Playing: {text}")
         tts = gTTS(text=text, lang='en')
-        filename = f"/tmp/{uuid.uuid4().hex}.mp3"
+        filename = get_audio_temp_path(f"{uuid.uuid4().hex}.mp3")
         tts.save(filename)
         playsound(filename)
         os.remove(filename)

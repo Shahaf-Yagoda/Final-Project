@@ -23,6 +23,13 @@ import sys
 import json
 import shutil
 from typing import Dict, Optional, Tuple
+from src.utils.temp_paths import (
+    get_user_reps_path, 
+    get_user_session_details_path, 
+    get_user_feedback_path,
+    get_user_session_video_path,
+    get_temp_path
+)
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -61,12 +68,12 @@ class VideoStreamManager:
     
     def save_reps_to_tempfile(self, user_id: int, reps: int):
         """Save rep count to temporary file."""
-        with open(f"/tmp/reps_{user_id}.txt", "w") as f:
+        with open(get_user_reps_path(user_id), "w") as f:
             f.write(str(reps))
     
     def append_session_detail(self, user_id: int, detail: dict):
         """Append session detail to temporary JSON file with error handling."""
-        details_file = f"/tmp/sessiondetails_{user_id}.json"
+        details_file = get_user_session_details_path(user_id)
         import fcntl
         
         try:
@@ -95,7 +102,7 @@ class VideoStreamManager:
         except Exception as e:
             print(f"Error appending session detail for user {user_id}: {e}")
             # Fallback: write to a separate file with timestamp
-            fallback_file = f"/tmp/sessiondetails_{user_id}_{int(time.time())}.json"
+            fallback_file = get_temp_path(f"sessiondetails_{user_id}_{int(time.time())}.json")
             try:
                 with open(fallback_file, "w") as f:
                     json.dump([detail], f)
@@ -130,7 +137,7 @@ class VideoStreamManager:
             self.feedback_throttle[user_id] = {}
         self.feedback_throttle[user_id][message] = current_time
         
-        feedback_file = f"/tmp/feedback_{user_id}.json"
+        feedback_file = get_user_feedback_path(user_id)
         import fcntl
         
         try:
@@ -159,7 +166,7 @@ class VideoStreamManager:
         except Exception as e:
             print(f"Error appending feedback for user {user_id}: {e}")
             # Fallback: write to a separate file with timestamp
-            fallback_file = f"/tmp/feedback_{user_id}_{int(time.time())}.json"
+            fallback_file = get_temp_path(f"feedback_{user_id}_{int(time.time())}.json")
             try:
                 with open(fallback_file, "w") as f:
                     json.dump([feedback], f)
@@ -206,20 +213,14 @@ class VideoStreamManager:
     
     def setup_video_recording(self, user_id: int, exercise: str, cap: cv2.VideoCapture) -> Optional[cv2.VideoWriter]:
         """Setup video recording for the session with improved codec handling."""
-        import tempfile
         import platform
         
-        # Use appropriate temp directory for the platform
-        system = platform.system().lower()
-        if system == 'windows':
-            temp_dir = tempfile.gettempdir()
-            temp_video_path = os.path.join(temp_dir, f"user{user_id}_session.mp4")
-        else:
-            temp_video_path = f"/tmp/user{user_id}_session.mp4"
-            
+        # Use cross-platform temp path utility
+        temp_video_path = get_user_session_video_path(user_id)
         self.video_temp_paths[(user_id, exercise)] = temp_video_path
         
         # Platform-specific codec priority for better Windows compatibility
+        system = platform.system().lower()
         
         if system == 'windows':
             fourcc_options = [
