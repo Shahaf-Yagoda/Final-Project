@@ -6,26 +6,18 @@ import json
 from typing import Optional, Dict, Any
 
 class User:
-    def __init__(self, user_id=None, email=None, username=None, password=None, 
-                 registration_date=None, registration_time=None, profile_data=None, 
-                 role=None, created_at=None, updated_at=None, first_name=None, 
-                 last_name=None, last_login=None, user_type=None, is_active=None):
+    def __init__(self, user_id=None, email=None, password=None, 
+                 first_name=None, last_name=None, profile_data=None,
+                 registration_date=None, last_login=None, user_type=None, is_active=None):
         self.user_id = user_id
         self.email = email
-        self.username = username
         self.password = password
-        self.registration_date = registration_date or date.today()
-        self.registration_time = registration_time or datetime.now().time()
-        self.profile_data = self._safe_json_load(profile_data)
-        # Handle both legacy 'role' and new 'user_type' fields
-        self.user_type = user_type or role if isinstance(role or user_type, str) else 'user'
-        self.role = self.user_type  # Backward compatibility
-        self.created_at = created_at or datetime.now()
-        self.updated_at = updated_at or datetime.now()
-        # New fields from comprehensive schema
         self.first_name = first_name
         self.last_name = last_name
+        self.profile_data = self._safe_json_load(profile_data)
+        self.registration_date = registration_date or datetime.now()
         self.last_login = last_login
+        self.user_type = user_type if isinstance(user_type, str) else 'user'
         self.is_active = is_active if is_active is not None else True
 
     @staticmethod
@@ -56,13 +48,13 @@ class User:
         return bcrypt.checkpw(plain_pw.encode('utf-8'), hashed_pw.encode('utf-8'))
 
     @classmethod
-    def register(cls, email: str, username: str, password: str, 
+    def register(cls, email: str, password: str, 
                 profile_data: Optional[Dict[str, Any]] = None, 
-                role: str = 'user', first_name: str = None, 
+                user_type: str = 'user', first_name: str = None, 
                 last_name: str = None) -> 'User':
-        """Register a new user with comprehensive schema"""
+        """Register a new user"""
         # Validate inputs
-        role = cls._validate_role(role)
+        user_type = cls._validate_role(user_type)  # Reuse role validation for user_type
         hashed_pw = cls.hash_password(password)
         
         conn = get_connection()
@@ -70,20 +62,19 @@ class User:
             with conn.cursor() as cur:
                 now = datetime.now()
                 cur.execute("""
-                    INSERT INTO users (email, username, password, registration_date, 
-                                       registration_time, profile_data, user_type, 
-                                       first_name, last_name, is_active, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING user_id
-                """, (email, username, hashed_pw, now.date(), now.time(), 
-                      json.dumps(profile_data) if profile_data else None, 
-                      role, first_name, last_name, True, now, now))
+                    INSERT INTO users (email, password, first_name, last_name,
+                                   profile_data, registration_date, last_login,
+                                   user_type, is_active)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING user_id
+                """, (email, hashed_pw, first_name, last_name,
+                      json.dumps(profile_data) if profile_data else None,
+                      now, now, user_type, True))
                 user_id = cur.fetchone()[0]
                 conn.commit()
-                return cls(user_id=user_id, email=email, username=username, 
-                          password=hashed_pw, registration_date=now.date(), 
-                          registration_time=now.time(), profile_data=profile_data, 
-                          user_type=role, first_name=first_name, last_name=last_name,
-                          is_active=True, created_at=now, updated_at=now)
+                return cls(user_id=user_id, email=email, password=hashed_pw,
+                         first_name=first_name, last_name=last_name,
+                         profile_data=profile_data, registration_date=now,
+                         last_login=now, user_type=user_type, is_active=True)
         except psycopg2.Error as e:
             conn.rollback()
             raise e
@@ -91,32 +82,32 @@ class User:
             conn.close()
 
     @classmethod
-    def authenticate(cls, identifier: str, password: str) -> Optional['User']:
-        """Authenticate user with comprehensive schema"""
+    def authenticate(cls, email: str, password: str) -> Optional['User']:
+        """Authenticate user"""
         conn = get_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT user_id, email, username, password, registration_date, 
-                           registration_time, profile_data, user_type, created_at, updated_at,
-                           first_name, last_name, last_login, is_active
+                    SELECT user_id, email, password, first_name, last_name,
+                           profile_data, registration_date, last_login,
+                           user_type, is_active
                     FROM users
-                    WHERE (email = %s OR username = %s) AND is_active = TRUE
-                """, (identifier, identifier))
+                    WHERE email = %s AND is_active = TRUE
+                """, (email,))
                 row = cur.fetchone()
-                if row and cls.verify_password(password, row[3]):
+                if row and cls.verify_password(password, row[2]):
                     # Update last_login
+                    now = datetime.now()
                     cur.execute("""
                         UPDATE users SET last_login = %s WHERE user_id = %s
-                    """, (datetime.now(), row[0]))
+                    """, (now, row[0]))
                     conn.commit()
                     
                     return cls(
-                        user_id=row[0], email=row[1], username=row[2], password=row[3],
-                        registration_date=row[4], registration_time=row[5], 
-                        profile_data=row[6], user_type=row[7], created_at=row[8], 
-                        updated_at=row[9], first_name=row[10], last_name=row[11],
-                        last_login=datetime.now(), is_active=row[13]
+                        user_id=row[0], email=row[1], password=row[2],
+                        first_name=row[3], last_name=row[4],
+                        profile_data=row[5], registration_date=row[6],
+                        last_login=now, user_type=row[8], is_active=row[9]
                     )
                 else:
                     return None
@@ -125,24 +116,23 @@ class User:
 
     @classmethod
     def get_by_id(cls, user_id: int) -> Optional['User']:
-        """Get user by ID with comprehensive schema"""
+        """Get user by ID"""
         conn = get_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT user_id, email, username, password, registration_date, 
-                           registration_time, profile_data, user_type, created_at, updated_at,
-                           first_name, last_name, last_login, is_active
+                    SELECT user_id, email, password, first_name, last_name,
+                           profile_data, registration_date, last_login,
+                           user_type, is_active
                     FROM users WHERE user_id = %s
                 """, (user_id,))
                 row = cur.fetchone()
                 if row:
                     return cls(
-                        user_id=row[0], email=row[1], username=row[2], password=row[3],
-                        registration_date=row[4], registration_time=row[5], 
-                        profile_data=row[6], user_type=row[7], created_at=row[8], 
-                        updated_at=row[9], first_name=row[10], last_name=row[11],
-                        last_login=row[12], is_active=row[13]
+                        user_id=row[0], email=row[1], password=row[2],
+                        first_name=row[3], last_name=row[4],
+                        profile_data=row[5], registration_date=row[6],
+                        last_login=row[7], user_type=row[8], is_active=row[9]
                     )
                 else:
                     return None
@@ -150,22 +140,18 @@ class User:
             conn.close()
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert user to dictionary with comprehensive fields"""
+        """Convert user to dictionary"""
         return {
             'user_id': self.user_id,
             'email': self.email,
-            'username': self.username,
+            'password': self.password,
             'first_name': self.first_name,
             'last_name': self.last_name,
-            'registration_date': self.registration_date.isoformat() if isinstance(self.registration_date, date) else self.registration_date,
-            'registration_time': self.registration_time.isoformat() if isinstance(self.registration_time, time) else self.registration_time,
             'profile_data': self.profile_data,
-            'user_type': self.user_type,
-            'role': self.role,  # Backward compatibility
-            'is_active': self.is_active,
+            'registration_date': self.registration_date.isoformat() if isinstance(self.registration_date, datetime) else self.registration_date,
             'last_login': self.last_login.isoformat() if isinstance(self.last_login, datetime) else self.last_login,
-            'created_at': self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
-            'updated_at': self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else self.updated_at
+            'user_type': self.user_type,
+            'is_active': self.is_active
         }
     
     def get_full_name(self) -> str:

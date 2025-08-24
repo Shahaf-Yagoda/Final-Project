@@ -47,6 +47,8 @@ class VideoStreamManager:
         self.video_temp_paths: Dict[Tuple[int, str], str] = {}
         # Throttling state: {user_id: {message: last_timestamp}}
         self.feedback_throttle: Dict[int, Dict[str, float]] = {}
+        # Session start times: {user_id: start_time}
+        self.session_start_times: Dict[int, float] = {}
     
     def get_session_key(self, user_id: int, exercise: str) -> str:
         """Generate a unique session key."""
@@ -65,6 +67,12 @@ class VideoStreamManager:
         if key not in self.session_states:
             self.session_states[key] = init_state(exercise)
         self.session_states[key]["session_active"] = active
+        
+        # Track session start time
+        if active:
+            self.session_start_times[user_id] = time.time()
+        else:
+            self.session_start_times.pop(user_id, None)
     
     def save_reps_to_tempfile(self, user_id: int, reps: int):
         """Save rep count to temporary file."""
@@ -191,14 +199,18 @@ class VideoStreamManager:
             
             # Save session details only when reps > 0 (to satisfy database constraint)
             if reps > 0:
+                current_time = time.time()
+                session_start = self.session_start_times.get(user_id, current_time)
+                relative_time = current_time - session_start
+                
                 detail = {
-                    "timestamp": time.time(),
+                    "timestamp": relative_time,
                     "rep_num": reps,
                     # Use new schema - no keypoints, focus on form analysis
                     "features_json": {
                         "form_correct": len(feedback) == 0,
                         "feedback_count": len(feedback),
-                        "timestamp": time.time()
+                        "timestamp": relative_time
                     },
                     "is_correct": len(feedback) == 0,
                     "incorrect_duration": 0
@@ -207,7 +219,10 @@ class VideoStreamManager:
             
             # Save feedback
             for msg in feedback:
-                self.append_feedback(user_id, {"timestamp": time.time(), "message": msg})
+                current_time = time.time()
+                session_start = self.session_start_times.get(user_id, current_time)
+                relative_time = current_time - session_start
+                self.append_feedback(user_id, {"timestamp": relative_time, "message": msg})
         
         return frame
     

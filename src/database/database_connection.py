@@ -22,7 +22,7 @@ def get_connection(use_cloud=None):
             db_address = os.getenv("DB_ADDRESS_CLOUD")
             sslmode = "require"
         else:
-            db_name = os.getenv("DB_NAME_LOCAL")
+            db_name = os.getenv("DB_NAME_LOCAL", "right_motion")
             db_user = os.getenv("DB_USER_LOCAL")
             db_password = os.getenv("DB_PASSWORD_LOCAL")
             db_address = os.getenv("DB_ADDRESS_LOCAL", "localhost")

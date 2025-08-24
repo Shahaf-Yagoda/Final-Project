@@ -249,7 +249,7 @@ def get_exercise_id_by_name(exercise_name):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute('SELECT exercise_id FROM exercise WHERE name = %s', (exercise_name,))
+            cur.execute('SELECT exercise_id FROM exercises WHERE exercise_name = %s', (exercise_name,))
             row = cur.fetchone()
             return row[0] if row else None
     finally:
@@ -296,33 +296,33 @@ elif st.session_state.page == "Register":
     st.title("User Registration")
 
     email = st.text_input("Email")
-    username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
     # Profile fields
-    name = st.text_input("Full Name")
+    first_name = st.text_input("First Name")
+    last_name = st.text_input("Last Name")
     dob = st.date_input("Date of Birth")
     height = st.number_input("Height (cm)", min_value=0)
     weight = st.number_input("Weight (kg)", min_value=0)
-    role = st.selectbox("Role", ["user", "coach", "admin"])
+    user_type = st.selectbox("Role", ["user", "coach", "admin"])
 
     if st.button("Register"):
-        if not username or not password or not email:
-            st.error("Email, username, and password are required.")
+        if not password or not email:
+            st.error("Email and password are required.")
         else:
             try:
                 profile_data = {
-                    "name": name,
                     "date_of_birth": str(dob),
                     "height": height,
                     "weight": weight
                 }
                 user = User.register(
                     email=email,
-                    username=username,
                     password=password,
                     profile_data=profile_data,
-                    role=role
+                    user_type=user_type,
+                    first_name=first_name,
+                    last_name=last_name
                 )
                 st.success(f"User registered with ID: {user.user_id}")
             except Exception as e:
@@ -334,16 +334,16 @@ elif st.session_state.page == "Register":
 elif st.session_state.page == "Login":
     st.title("User Login")
 
-    identifier = st.text_input("Email or Username")
+    email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
     if st.button("Log In"):
-        user = User.authenticate(identifier, password)
+        user = User.authenticate(email, password)
         if user:
             st.session_state.logged_in = True
             st.session_state.user_id = user.user_id
-            st.session_state.username = user.username
-            st.success(f"Login successful! Welcome, {user.username}.")
+            st.session_state.username = user.get_full_name()
+            st.success(f"Login successful! Welcome, {user.get_full_name()}.")
             st.session_state.page = "Home"
             st.rerun()
         else:
@@ -361,7 +361,7 @@ elif st.session_state.page == "Analyze":
     st.header("Select Exercise Type")
     selected_exercise = option_menu(
         menu_title=None,
-        options=["lunge", "press", "plank"],
+        options=["lunge", "overhead_press", "plank"],
         icons=["1-circle-fill", "2-circle-fill", "3-circle-fill"],
         orientation="horizontal",
     )
@@ -450,7 +450,9 @@ elif st.session_state.page == "Analyze":
                             "count": 0,
                             "last_message": "",
                             "message_timer": 0,
-                            "feedback": []
+                            "feedback": [],
+                            "angle_buffer_l": [],
+                            "angle_buffer_r": []
                         }
                         feedback_messages = []
                         
@@ -487,8 +489,10 @@ elif st.session_state.page == "Analyze":
                                 if feedback:
                                     # Add timestamp to feedback messages
                                     for msg in feedback:
-                                        timestamp_str = f"{int(current_timestamp//60):02d}:{int(current_timestamp%60):02d}"
-                                        feedback_messages.append(f"{timestamp_str} - {msg}")
+                                        feedback_messages.append({
+                                            "timestamp": current_timestamp,
+                                            "message": msg
+                                        })
                             
                             # Write frame to output video
                             # Note: OpenCV's write() may not return a boolean value consistently
@@ -503,14 +507,24 @@ elif st.session_state.page == "Analyze":
                         
                         # Save session to DB using OOP Session class
                         exercise_id = get_exercise_id_by_name(selected_exercise)
-                        session = Session(
+                        # Create workout for this session
+                        workout = Workout.create(
                             user_id=user_id,
+                            workout_date=datetime.now().date(),
+                            start_time=datetime.now()
+                        )
+                        
+                        session = Session(
                             exercise_id=exercise_id,
+                            workout_id=workout.workout_id,
+                            session_order=1,
                             start_time=datetime.now(),
                             end_time=datetime.now(),
-                            video_path=output_path,
-                            reps_count=rep_count,
-                            feedback_count=len(feedback_messages)
+                            duration=0,
+                            planned_reps=rep_count,
+                            actual_reps=rep_count,
+                            session_status='completed',
+                            video_path=output_path
                         )
                         session.save()
                         
@@ -758,55 +772,148 @@ elif st.session_state.page == "Analyze":
                         if feedback_messages:
                             st.subheader("📝 Form Feedback:")
                             
-                            # Remove duplicates while preserving order
-                            unique_feedback = []
-                            seen = set()
-                            for msg in feedback_messages:
-                                if msg not in seen:
-                                    unique_feedback.append(msg)
-                                    seen.add(msg)
+                            # Deduplicate feedback before saving to database
+                            unique_feedback_for_db = []
+                            seen_combinations = set()
                             
-                            # Sort feedback by timestamp
-                            unique_feedback.sort(key=lambda x: x.split(' - ')[0] if ' - ' in x else x)
+                            for fb in feedback_messages:
+                                timestamp = fb.get("timestamp")
+                                message = fb.get("message")
+                                if timestamp and message:
+                                    # Create a deduplication key with message and rounded timestamp (to nearest 5 seconds)
+                                    rounded_timestamp = round(timestamp / 5) * 5
+                                    dedup_key = f"{message}_{rounded_timestamp}"
+                                    
+                                    if dedup_key not in seen_combinations:
+                                        unique_feedback_for_db.append(fb)
+                                        seen_combinations.add(dedup_key)
                             
-                            # Display in a clean container using Streamlit's native styling
-                            with st.container():
-                                st.markdown("""
-                                <style>
-                                .feedback-container {
-                                    max-height: 300px;
-                                    overflow-y: auto;
-                                    border: 1px solid #ddd;
-                                    border-radius: 8px;
-                                    padding: 1rem;
-                                    background-color: #f8f9fa;
-                                    margin: 10px 0;
-                                }
-                                .feedback-item {
-                                    background-color: white;
-                                    padding: 0.5rem;
-                                    margin-bottom: 0.5rem;
-                                    border-left: 4px solid #ff6b6b;
-                                    border-radius: 4px;
-                                    font-family: 'Source Code Pro', monospace;
-                                }
-                                </style>
-                                """, unsafe_allow_html=True)
+                            # Create formatted feedback with proper timestamps
+                            formatted_feedback = []
+                            session_start_time = None
+                            
+                            # Find the earliest timestamp to use as session start
+                            valid_timestamps = [fb.get("timestamp") for fb in feedback_messages if fb.get("timestamp")]
+                            if valid_timestamps:
+                                session_start_time = min(valid_timestamps)
+                            
+                            for fb in feedback_messages:
+                                try:
+                                    timestamp = fb.get("timestamp")
+                                    message = fb.get("message")
+                                    if timestamp and message and session_start_time:
+                                        # Calculate relative seconds from session start
+                                        relative_seconds = timestamp - session_start_time
+                                        # Ensure non-negative timestamps
+                                        relative_seconds = max(0, relative_seconds)
+                                        # Convert to MM:SS format
+                                        minutes = int(relative_seconds // 60)
+                                        seconds = int(relative_seconds % 60)
+                                        timestamp_str = f"{minutes:02d}:{seconds:02d}"
+                                        formatted_feedback.append(f"{timestamp_str} - {message}")
+                                    elif message:
+                                        # If no valid timestamp, use message without timestamp
+                                        formatted_feedback.append(str(message))
+                                except Exception as e:
+                                    # Fallback for any timestamp conversion issues
+                                    if fb.get("message"):
+                                        formatted_feedback.append(str(fb.get("message")))
+                            
+                            # Smart message aggregation instead of simple deduplication
+                            def aggregate_feedback_messages(formatted_feedback):
+                                """Group similar feedback messages with occurrence counts and time ranges."""
+                                message_groups = {}
                                 
+                                for msg in formatted_feedback:
+                                    if ' - ' in msg:
+                                        timestamp_str, message = msg.split(' - ', 1)
+                                        # Extract just the core message (ignore severity words)
+                                        core_message = message.replace("CRITICAL: ", "").replace("Don't ", "").strip()
+                                        
+                                        if core_message not in message_groups:
+                                            message_groups[core_message] = {
+                                                'original_message': message,
+                                                'timestamps': [],
+                                                'count': 0,
+                                                'has_critical': False
+                                            }
+                                        
+                                        message_groups[core_message]['timestamps'].append(timestamp_str)
+                                        message_groups[core_message]['count'] += 1
+                                        if "CRITICAL" in message:
+                                            message_groups[core_message]['has_critical'] = True
+                                    else:
+                                        # Handle messages without timestamps
+                                        if msg not in message_groups:
+                                            message_groups[msg] = {
+                                                'original_message': msg,
+                                                'timestamps': [],
+                                                'count': 1,
+                                                'has_critical': False
+                                            }
+                                
+                                # Create aggregated feedback messages
+                                aggregated = []
+                                for _, data in message_groups.items():
+                                    if data['timestamps']:
+                                        first_time = data['timestamps'][0]
+                                        last_time = data['timestamps'][-1]
+                                        
+                                        if data['count'] == 1:
+                                            # Single occurrence - use original format
+                                            aggregated.append(f"{first_time} - {data['original_message']}")
+                                        else:
+                                            # Multiple occurrences - show aggregated format
+                                            severity_prefix = "⚠️ CRITICAL: " if data['has_critical'] else ""
+                                            if first_time == last_time:
+                                                aggregated.append(f"{first_time} - {severity_prefix}{data['original_message']} (occurred {data['count']} times)")
+                                            else:
+                                                aggregated.append(f"{first_time}-{last_time} - {severity_prefix}{data['original_message']} (occurred {data['count']} times)")
+                                    else:
+                                        # No timestamp - just add the message
+                                        aggregated.append(data['original_message'])
+                                
+                                return aggregated
+                            
+                            unique_feedback = aggregate_feedback_messages(formatted_feedback)
+                            
+                            # Display feedback with enhanced styling
+                            st.markdown("""
+                            <style>
+                            .feedback-container {
+                                max-height: 300px;
+                                overflow-y: auto;
+                                border: 1px solid #ddd;
+                                border-radius: 8px;
+                                padding: 1rem;
+                                background-color: #f8f9fa;
+                                margin: 10px 0;
+                            }
+                            .feedback-item {
+                                background-color: white;
+                                padding: 0.5rem;
+                                margin-bottom: 0.5rem;
+                                border-left: 4px solid #ff6b6b;
+                                border-radius: 4px;
+                                font-family: 'Source Code Pro', monospace;
+                            }
+                            </style>
+                            """, unsafe_allow_html=True)
+                            
+                            if unique_feedback:
                                 feedback_html = '<div class="feedback-container">'
                                 for i, msg in enumerate(unique_feedback, 1):
-                                    # Extract timestamp and message
                                     if ' - ' in msg:
                                         timestamp, message = msg.split(' - ', 1)
                                         feedback_html += f'<div class="feedback-item"><strong>{timestamp}</strong> – {message}</div>'
                                     else:
-                                        feedback_html += f'<div class="feedback-item"><strong>#{i}</strong> – {msg}</div>'
+                                        feedback_html += f'<div class="feedback-item">{msg}</div>'
                                 feedback_html += '</div>'
                                 
                                 st.markdown(feedback_html, unsafe_allow_html=True)
-                            
-                            # Note: Feedback count removed per user request
-                            # st.info(f"📊 Total feedback points: {len(unique_feedback)}")
+                                st.caption(f"Generated {len(unique_feedback)} feedback messages during your session.")
+                            else:
+                                st.info("Great job! No form corrections needed during your session.")
                         else:
                             st.success("✅ Great form! No issues detected.")
                         
@@ -836,7 +943,7 @@ elif st.session_state.page == "LiveExercise":
         st.button("🔑 Go to Login", on_click=set_page, args=("Login",))
     else:
         st.title("Live Exercise Tracker")
-        exercise = option_menu(None, ["lunge", "press", "plank"],
+        exercise = option_menu(None, ["lunge", "overhead_press", "plank"],
                                icons=["1-circle-fill", "2-circle-fill", "3-circle-fill"],
                                orientation="horizontal")
 
@@ -924,7 +1031,6 @@ elif st.session_state.page == "LiveExercise":
                 
                 # Create session with comprehensive schema
                 session = Session(
-                    user_id=user_id,
                     exercise_id=exercise_id,
                     workout_id=workout.workout_id,  # Link to workout
                     session_order=1,  # First exercise in workout
@@ -934,10 +1040,7 @@ elif st.session_state.page == "LiveExercise":
                     planned_reps=reps,  # Assume planned equals actual for live sessions
                     actual_reps=reps,   # Use new field name
                     session_status='completed',
-                    video_path=video_path,
-                    # Legacy fields for backward compatibility
-                    duration_sec=duration_sec,
-                    reps_count=reps
+                    video_path=video_path
                 )
                 session.save()
                 
@@ -1328,10 +1431,13 @@ elif st.session_state.page == "History":
             else:
                 for sess in sessions:
                     st.markdown(f"**Session ID:** {sess.session_id}  ")
-                    st.markdown(f"**Date:** {format_datetime(sess.start_time)}  ")
+                    st.markdown(f"**Start Time:** {format_datetime(sess.start_time)}  ")
+                    st.markdown(f"**End Time:** {format_datetime(sess.end_time)}  ")
                     st.markdown(f"**Exercise ID:** {sess.exercise_id}  ")
-                    st.markdown(f"**Reps:** {sess.reps_count}  ")
-                    st.markdown(f"**Duration (sec):** {sess.duration_sec}  ")
+                    st.markdown(f"**Planned Reps:** {sess.planned_reps}  ")
+                    st.markdown(f"**Actual Reps:** {sess.actual_reps}  ")
+                    st.markdown(f"**Duration (sec):** {sess.duration}  ")
+                    st.markdown(f"**Status:** {sess.session_status}  ")
                     if sess.video_path and os.path.exists(sess.video_path):
                         st.video(sess.video_path)
                     else:

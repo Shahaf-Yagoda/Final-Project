@@ -28,7 +28,7 @@ python-dotenv==1.1.0
 # Audio Processing (Text-to-Speech)
 gTTS==2.5.4
 pyttsx3==2.98
-playsound==1.3.0
+playsound==1.2.2
 
 # HTTP Requests
 requests==2.32.3

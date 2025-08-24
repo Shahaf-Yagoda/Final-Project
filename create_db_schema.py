@@ -13,7 +13,29 @@ from pathlib import Path
 # Add the src directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from database.database_connection import get_connection
+import os
+import psycopg2
+from dotenv import load_dotenv
+
+def get_connection():
+    """Get database connection for schema creation"""
+    try:
+        load_dotenv()
+        db_name = "right_motion"
+        db_user = os.getenv("DB_USER_LOCAL", "postgres")
+        db_password = os.getenv("DB_PASSWORD_LOCAL", "postgres")
+        db_address = os.getenv("DB_ADDRESS_LOCAL", "localhost")
+        sslmode = "disable"
+
+        connection_string = (
+            f"postgresql://{db_user}:{db_password}@{db_address}/{db_name}?sslmode={sslmode}"
+        )
+
+        return psycopg2.connect(connection_string)
+
+    except psycopg2.Error as e:
+        print("Error connecting to the database:", e)
+        raise
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -34,18 +56,14 @@ def create_database_schema():
     CREATE TABLE IF NOT EXISTS users (
         user_id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
-        username VARCHAR(100) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        registration_date DATE DEFAULT CURRENT_DATE,
-        registration_time TIME DEFAULT CURRENT_TIME,
-        profile_data JSONB DEFAULT '{}',
-        user_type user_role_enum DEFAULT 'basic',
         first_name VARCHAR(100),
         last_name VARCHAR(100),
+        profile_data JSONB DEFAULT '{}',
+        registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        user_type user_role_enum DEFAULT 'basic',
+        is_active BOOLEAN DEFAULT TRUE
     );
 
     -- Create Workout table
@@ -137,7 +155,6 @@ def create_database_schema():
 
     -- Create indexes for performance optimization
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type);
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_exercise_id ON sessions(exercise_id);
@@ -163,8 +180,7 @@ def create_database_schema():
     END;
     $$ language 'plpgsql';
 
-    CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 
     CREATE TRIGGER update_workouts_updated_at BEFORE UPDATE ON workouts
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

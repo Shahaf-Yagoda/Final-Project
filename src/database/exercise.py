@@ -6,14 +6,12 @@ from typing import Optional, List, Dict, Any
 
 class Exercise:
     def __init__(self, exercise_id=None, name=None, description=None, 
-                 target_muscles=None, instructions=None, created_at=None, updated_at=None):
+                 target_muscles=None, instructions=None):
         self.exercise_id = exercise_id
         self.name = name
         self.description = description
         self.target_muscles = self._safe_json_load(target_muscles)
         self.instructions = instructions
-        self.created_at = created_at or datetime.now()
-        self.updated_at = updated_at or datetime.now()
 
     @staticmethod
     def _safe_json_load(val):
@@ -34,19 +32,17 @@ class Exercise:
         conn = get_connection()
         try:
             with conn.cursor() as cur:
-                now = datetime.now()
                 cur.execute("""
-                    INSERT INTO exercises (name, description, target_muscles, instructions, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING exercise_id
+                    INSERT INTO exercises (name, description, target_muscles, instructions)
+                    VALUES (%s, %s, %s, %s) RETURNING exercise_id
                 """, (name, description, json.dumps(target_muscles) if target_muscles else None, 
-                      instructions, now, now))
+                      instructions))
                 exercise_id = cur.fetchone()[0]
                 conn.commit()
                 
                 return cls(
                     exercise_id=exercise_id, name=name, description=description,
-                    target_muscles=target_muscles, instructions=instructions,
-                    created_at=now, updated_at=now
+                    target_muscles=target_muscles, instructions=instructions
                 )
         except psycopg2.Error as e:
             conn.rollback()
@@ -61,7 +57,7 @@ class Exercise:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
+                    SELECT exercise_id, name, description, target_muscles, instructions
                     FROM exercises WHERE exercise_id = %s
                 """, (exercise_id,))
                 row = cur.fetchone()
@@ -78,7 +74,7 @@ class Exercise:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
+                    SELECT exercise_id, name, description, target_muscles, instructions
                     FROM exercises WHERE name = %s
                 """, (name,))
                 row = cur.fetchone()
@@ -95,7 +91,7 @@ class Exercise:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
+                    SELECT exercise_id, name, description, target_muscles, instructions
                     FROM exercises ORDER BY name
                 """)
                 rows = cur.fetchall()
@@ -110,7 +106,7 @@ class Exercise:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT exercise_id, name, description, target_muscles, instructions, created_at, updated_at
+                    SELECT exercise_id, name, description, target_muscles, instructions
                     FROM exercises 
                     WHERE target_muscles::text ILIKE %s
                     ORDER BY name
@@ -146,14 +142,10 @@ class Exercise:
                     self.instructions = instructions
                 
                 if updates:
-                    updates.append("updated_at = %s")
-                    params.append(datetime.now())
                     params.append(self.exercise_id)
-                    
                     query = f"UPDATE exercises SET {', '.join(updates)} WHERE exercise_id = %s"
                     cur.execute(query, params)
                     conn.commit()
-                    self.updated_at = datetime.now()
                 
                 return True
         except psycopg2.Error:
@@ -169,7 +161,5 @@ class Exercise:
             'name': self.name,
             'description': self.description,
             'target_muscles': self.target_muscles,
-            'instructions': self.instructions,
-            'created_at': self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
-            'updated_at': self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else self.updated_at
+            'instructions': self.instructions
         }

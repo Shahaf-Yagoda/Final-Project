@@ -5,16 +5,13 @@ from typing import Optional, List, Dict, Any
 
 class Workout:
     def __init__(self, workout_id=None, user_id=None, workout_date=None, 
-                 start_time=None, end_time=None, total_duration=None, 
-                 created_at=None, updated_at=None):
+                 start_time=None, end_time=None, total_duration=None):
         self.workout_id = workout_id
         self.user_id = user_id
         self.workout_date = workout_date or date.today()
         self.start_time = start_time
         self.end_time = end_time
         self.total_duration = total_duration
-        self.created_at = created_at or datetime.now()
-        self.updated_at = updated_at or datetime.now()
 
     @classmethod
     def create(cls, user_id: int, workout_date: date = None, 
@@ -26,17 +23,16 @@ class Workout:
         conn = get_connection()
         try:
             with conn.cursor() as cur:
-                now = datetime.now()
                 cur.execute("""
-                    INSERT INTO workouts (user_id, workout_date, start_time, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s) RETURNING workout_id
-                """, (user_id, workout_date, start_time, now, now))
+                    INSERT INTO workouts (user_id, workout_date, start_time)
+                    VALUES (%s, %s, %s) RETURNING workout_id
+                """, (user_id, workout_date, start_time))
                 workout_id = cur.fetchone()[0]
                 conn.commit()
                 
                 return cls(
                     workout_id=workout_id, user_id=user_id, workout_date=workout_date,
-                    start_time=start_time, created_at=now, updated_at=now
+                    start_time=start_time
                 )
         except psycopg2.Error as e:
             conn.rollback()
@@ -52,7 +48,7 @@ class Workout:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT workout_id, user_id, workout_date, start_time, end_time, 
-                           total_duration, created_at, updated_at
+                           total_duration
                     FROM workouts WHERE workout_id = %s
                 """, (workout_id,))
                 row = cur.fetchone()
@@ -70,7 +66,7 @@ class Workout:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT workout_id, user_id, workout_date, start_time, end_time, 
-                           total_duration, created_at, updated_at
+                           total_duration
                     FROM workouts 
                     WHERE user_id = %s 
                     ORDER BY workout_date DESC, start_time DESC
@@ -95,14 +91,13 @@ class Workout:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE workouts 
-                    SET end_time = %s, total_duration = %s, updated_at = %s
+                    SET end_time = %s, total_duration = %s
                     WHERE workout_id = %s
-                """, (end_time, duration, datetime.now(), self.workout_id))
+                """, (end_time, duration, self.workout_id))
                 conn.commit()
                 
                 self.end_time = end_time
                 self.total_duration = duration
-                self.updated_at = datetime.now()
                 return True
         except psycopg2.Error:
             conn.rollback()
@@ -123,7 +118,5 @@ class Workout:
             'workout_date': self.workout_date.isoformat() if isinstance(self.workout_date, date) else self.workout_date,
             'start_time': self.start_time.isoformat() if isinstance(self.start_time, datetime) else self.start_time,
             'end_time': self.end_time.isoformat() if isinstance(self.end_time, datetime) else self.end_time,
-            'total_duration': self.total_duration,
-            'created_at': self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
-            'updated_at': self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else self.updated_at
+            'total_duration': self.total_duration
         }

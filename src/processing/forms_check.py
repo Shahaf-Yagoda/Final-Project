@@ -1492,7 +1492,7 @@ class PlankChecker(BaseExerciseChecker):
 # Exercise checker factory and compatibility functions
 _exercise_checkers = {
     "lunge": LungeChecker,
-    "press": OverheadPressChecker,
+    "overhead_press": OverheadPressChecker,
     "plank": PlankChecker,
 }
 
