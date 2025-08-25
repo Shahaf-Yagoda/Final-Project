@@ -56,7 +56,7 @@ class User:
         return bcrypt.checkpw(plain_pw.encode('utf-8'), hashed_pw.encode('utf-8'))
 
     @classmethod
-    def register(cls, email: str, username: str, password: str, 
+    def register(cls, email: str, password: str, 
                 profile_data: Optional[Dict[str, Any]] = None, 
                 role: str = 'user', first_name: str = None, 
                 last_name: str = None) -> 'User':
@@ -70,20 +70,19 @@ class User:
             with conn.cursor() as cur:
                 now = datetime.now()
                 cur.execute("""
-                    INSERT INTO "User" (email, username, password, registration_date, 
-                                       registration_time, profile_data, user_type, 
-                                       first_name, last_name, is_active, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING user_id
-                """, (email, username, hashed_pw, now.date(), now.time(), 
+                    INSERT INTO "user" (email, password, first_name, last_name, 
+                                       profile_data, registration_date, user_type, is_active)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING user_id
+                """, (email, hashed_pw, first_name, last_name,
                       json.dumps(profile_data) if profile_data else None, 
-                      role, first_name, last_name, True, now, now))
+                      now, role, True))
                 user_id = cur.fetchone()[0]
                 conn.commit()
-                return cls(user_id=user_id, email=email, username=username, 
-                          password=hashed_pw, registration_date=now.date(), 
-                          registration_time=now.time(), profile_data=profile_data, 
+                return cls(user_id=user_id, email=email, 
+                          password=hashed_pw, registration_date=now, 
+                          profile_data=profile_data, 
                           user_type=role, first_name=first_name, last_name=last_name,
-                          is_active=True, created_at=now, updated_at=now)
+                          is_active=True)
         except psycopg2.Error as e:
             conn.rollback()
             raise e
@@ -97,31 +96,34 @@ class User:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT user_id, email, username, password, registration_date, 
-                           registration_time, profile_data, user_type, created_at, updated_at,
-                           first_name, last_name, last_login, is_active
-                    FROM "User"
-                    WHERE (email = %s OR username = %s) AND is_active = TRUE
-                """, (identifier, identifier))
+                    SELECT user_id, email, password, registration_date, 
+                           profile_data, user_type, first_name, last_name, last_login, is_active
+                    FROM "user"
+                    WHERE email = %s AND is_active = TRUE
+                """, (identifier,))
                 row = cur.fetchone()
-                if row and cls.verify_password(password, row[3]):
+                if row and cls.verify_password(password, row[2]):
                     # Update last_login
                     cur.execute("""
-                        UPDATE "User" SET last_login = %s WHERE user_id = %s
+                        UPDATE "user" SET last_login = %s WHERE user_id = %s
                     """, (datetime.now(), row[0]))
                     conn.commit()
                     
                     return cls(
-                        user_id=row[0], email=row[1], username=row[2], password=row[3],
-                        registration_date=row[4], registration_time=row[5], 
-                        profile_data=row[6], user_type=row[7], created_at=row[8], 
-                        updated_at=row[9], first_name=row[10], last_name=row[11],
-                        last_login=datetime.now(), is_active=row[13]
+                        user_id=row[0], email=row[1], password=row[2],
+                        registration_date=row[3], profile_data=row[4], 
+                        user_type=row[5], first_name=row[6], last_name=row[7],
+                        last_login=datetime.now(), is_active=row[9]
                     )
                 else:
                     return None
         finally:
             conn.close()
+
+    @classmethod
+    def get_user_by_id(cls, user_id: int) -> Optional['User']:
+        """Alias for get_by_id for backward compatibility"""
+        return cls.get_by_id(user_id)
 
     @classmethod
     def get_by_id(cls, user_id: int) -> Optional['User']:
@@ -130,19 +132,17 @@ class User:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT user_id, email, username, password, registration_date, 
-                           registration_time, profile_data, user_type, created_at, updated_at,
-                           first_name, last_name, last_login, is_active
-                    FROM "User" WHERE user_id = %s
+                    SELECT user_id, email, password, registration_date, 
+                           profile_data, user_type, first_name, last_name, last_login, is_active
+                    FROM "user" WHERE user_id = %s
                 """, (user_id,))
                 row = cur.fetchone()
                 if row:
                     return cls(
-                        user_id=row[0], email=row[1], username=row[2], password=row[3],
-                        registration_date=row[4], registration_time=row[5], 
-                        profile_data=row[6], user_type=row[7], created_at=row[8], 
-                        updated_at=row[9], first_name=row[10], last_name=row[11],
-                        last_login=row[12], is_active=row[13]
+                        user_id=row[0], email=row[1], password=row[2],
+                        registration_date=row[3], profile_data=row[4], 
+                        user_type=row[5], first_name=row[6], last_name=row[7],
+                        last_login=row[8], is_active=row[9]
                     )
                 else:
                     return None
@@ -183,10 +183,10 @@ class User:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE "User" 
-                    SET is_active = FALSE, updated_at = %s 
+                    UPDATE "user" 
+                    SET is_active = FALSE
                     WHERE user_id = %s
-                """, (datetime.now(), self.user_id))
+                """, (self.user_id,))
                 conn.commit()
                 self.is_active = False
                 self.updated_at = datetime.now()
@@ -203,10 +203,10 @@ class User:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE "User" 
-                    SET profile_data = %s, updated_at = %s 
+                    UPDATE "user" 
+                    SET profile_data = %s
                     WHERE user_id = %s
-                """, (json.dumps(profile_data), datetime.now(), self.user_id))
+                """, (json.dumps(profile_data), self.user_id))
                 conn.commit()
                 self.profile_data = profile_data
                 self.updated_at = datetime.now()
@@ -225,10 +225,10 @@ class User:
             try:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        UPDATE "User" 
-                        SET role = %s, updated_at = %s 
+                        UPDATE "user" 
+                        SET user_type = %s
                         WHERE user_id = %s
-                    """, (new_role, datetime.now(), self.user_id))
+                    """, (new_role, self.user_id))
                     conn.commit()
                     self.role = new_role
                     self.updated_at = datetime.now()

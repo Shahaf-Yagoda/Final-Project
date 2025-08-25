@@ -25,6 +25,7 @@ from src.database.system_feedback import SystemFeedback
 from src.database.workout import Workout
 from src.processing.forms_check import check_form
 from src.database.database_connection import get_connection
+from src.utils.exercise_mapping import ui_to_db_name, db_to_ui_name
 
 def format_datetime(dt):
     from datetime import datetime
@@ -225,11 +226,15 @@ def logout():
     st.session_state.page = "Home"
 
 def get_exercise_id_by_name(exercise_name):
+    """Get exercise ID from database by name - handles UI to DB name conversion"""
     from src.database.database_connection import get_connection
+    # Convert UI name to database name
+    db_exercise_name = ui_to_db_name(exercise_name)
+    
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute('SELECT exercise_id FROM exercise WHERE name = %s', (exercise_name,))
+            cur.execute('SELECT exercise_id FROM exercise WHERE name = %s', (db_exercise_name,))
             row = cur.fetchone()
             return row[0] if row else None
     finally:
@@ -256,7 +261,13 @@ if st.session_state.page == "Home":
         with col2:
             st.button("🔑 Log In", on_click=set_page, args=("Login",))
     else:
-        st.success(f"Logged in as {st.session_state.username}")
+        try:
+            user = User.get_user_by_id(st.session_state.user_id)
+            display_name = user.get_full_name() if user else "Unknown User"
+        except Exception as e:
+            print(f"Error getting user: {e}")
+            display_name = "Unknown User"
+        st.success(f"Logged in as {display_name}")
         st.subheader("Choose an option:")
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -276,7 +287,8 @@ elif st.session_state.page == "Register":
     st.title("User Registration")
 
     email = st.text_input("Email")
-    username = st.text_input("Username")
+    first_name = st.text_input("First Name")
+    last_name = st.text_input("Last Name")
     password = st.text_input("Password", type="password")
 
     # Profile fields
@@ -287,8 +299,8 @@ elif st.session_state.page == "Register":
     role = st.selectbox("Role", ["user", "coach", "admin"])
 
     if st.button("Register"):
-        if not username or not password or not email:
-            st.error("Email, username, and password are required.")
+        if not first_name or not last_name or not password or not email:
+            st.error("Email, first name, last name, and password are required.")
         else:
             try:
                 profile_data = {
@@ -299,10 +311,11 @@ elif st.session_state.page == "Register":
                 }
                 user = User.register(
                     email=email,
-                    username=username,
                     password=password,
                     profile_data=profile_data,
-                    role=role
+                    role=role,
+                    first_name=first_name,
+                    last_name=last_name
                 )
                 st.success(f"User registered with ID: {user.user_id}")
             except Exception as e:
@@ -322,8 +335,8 @@ elif st.session_state.page == "Login":
         if user:
             st.session_state.logged_in = True
             st.session_state.user_id = user.user_id
-            st.session_state.username = user.username
-            st.success(f"Login successful! Welcome, {user.username}.")
+            st.session_state.username = user.get_full_name()
+            st.success(f"Login successful! Welcome, {user.get_full_name()}.")
             st.session_state.page = "Home"
             st.rerun()
         else:
@@ -484,13 +497,12 @@ elif st.session_state.page == "Analyze":
                         # Save session to DB using OOP Session class
                         exercise_id = get_exercise_id_by_name(selected_exercise)
                         session = Session(
-                            user_id=user_id,
                             exercise_id=exercise_id,
                             start_time=datetime.now(),
                             end_time=datetime.now(),
                             video_path=output_path,
-                            reps_count=rep_count,
-                            feedback_count=len(feedback_messages)
+                            actual_reps=rep_count,
+                            duration=0  # Will be calculated
                         )
                         session.save()
                         
@@ -904,20 +916,16 @@ elif st.session_state.page == "LiveExercise":
                 
                 # Create session with comprehensive schema
                 session = Session(
-                    user_id=user_id,
-                    exercise_id=exercise_id,
                     workout_id=workout.workout_id,  # Link to workout
+                    exercise_id=exercise_id,
                     session_order=1,  # First exercise in workout
                     start_time=start,
                     end_time=end,
-                    duration=duration_sec,  # Use new field name
+                    duration=duration_sec,
                     planned_reps=reps,  # Assume planned equals actual for live sessions
-                    actual_reps=reps,   # Use new field name
+                    actual_reps=reps,
                     session_status='completed',
-                    video_path=video_path,
-                    # Legacy fields for backward compatibility
-                    duration_sec=duration_sec,
-                    reps_count=reps
+                    video_path=video_path
                 )
                 session.save()
                 
@@ -1302,16 +1310,33 @@ elif st.session_state.page == "History":
     else:
         try:
             from src.database.session import Session
-            sessions = Session.load_by_user(user_id)
+            sessions = Session.load_by_user(user_id, limit=20)
             if not sessions:
                 st.info("No sessions found.")
             else:
                 for sess in sessions:
+                    # Get exercise name from database and convert to UI name
+                    try:
+                        conn = get_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM exercise WHERE exercise_id = %s", (sess.exercise_id,))
+                        exercise_row = cursor.fetchone()
+                        if exercise_row:
+                            db_exercise_name = exercise_row[0]
+                            exercise_name = db_to_ui_name(db_exercise_name)  # Convert to UI name
+                        else:
+                            exercise_name = f"Exercise {sess.exercise_id}"
+                        cursor.close()
+                        conn.close()
+                    except Exception as e:
+                        print(f"Error getting exercise name: {e}")
+                        exercise_name = f"Exercise {sess.exercise_id}"
+                    
                     st.markdown(f"**Session ID:** {sess.session_id}  ")
                     st.markdown(f"**Date:** {format_datetime(sess.start_time)}  ")
-                    st.markdown(f"**Exercise ID:** {sess.exercise_id}  ")
-                    st.markdown(f"**Reps:** {sess.reps_count}  ")
-                    st.markdown(f"**Duration (sec):** {sess.duration_sec}  ")
+                    st.markdown(f"**Exercise:** {exercise_name}  ")
+                    st.markdown(f"**Reps:** {sess.actual_reps}  ")
+                    st.markdown(f"**Duration (sec):** {sess.duration}  ")
                     if sess.video_path and os.path.exists(sess.video_path):
                         st.video(sess.video_path)
                     else:

@@ -25,175 +25,112 @@ def create_database_schema():
     
     # SQL to create the complete schema
     schema_sql = """
-    -- Create ENUM types
-    CREATE TYPE user_role_enum AS ENUM ('admin', 'premium', 'basic');
-    CREATE TYPE session_status_enum AS ENUM ('active', 'completed', 'paused', 'cancelled');
-    CREATE TYPE feedback_type_enum AS ENUM ('form_correction', 'motivation', 'progress', 'warning', 'achievement');
-
-    -- Create User table
-    CREATE TABLE IF NOT EXISTS users (
+    -- Create User table (singular name as per specification)
+    CREATE TABLE IF NOT EXISTS "user" (
         user_id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        registration_date DATE DEFAULT CURRENT_DATE,
-        registration_time TIME DEFAULT CURRENT_TIME,
-        profile_data JSONB DEFAULT '{}',
-        user_type user_role_enum DEFAULT 'basic',
-        first_name VARCHAR(100),
-        last_name VARCHAR(100),
-        last_login TIMESTAMP,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        email CHARACTER VARYING NOT NULL,
+        password CHARACTER VARYING NOT NULL,
+        first_name CHARACTER VARYING,
+        last_name CHARACTER VARYING,
+        profile_data JSON,
+        registration_date TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP WITHOUT TIME ZONE,
+        user_type CHARACTER VARYING,
+        is_active BOOLEAN DEFAULT TRUE
     );
 
-    -- Create Workout table
-    CREATE TABLE IF NOT EXISTS workouts (
-        workout_id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-        workout_name VARCHAR(255) NOT NULL,
-        description TEXT,
-        target_muscles JSONB DEFAULT '[]',
-        difficulty_level INTEGER CHECK (difficulty_level BETWEEN 1 AND 5),
-        estimated_duration INTEGER, -- in minutes
-        is_template BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Create Exercise table
-    CREATE TABLE IF NOT EXISTS exercises (
+    -- Create Exercise table (singular name as per specification)
+    CREATE TABLE IF NOT EXISTS exercise (
         exercise_id SERIAL PRIMARY KEY,
-        exercise_name VARCHAR(255) UNIQUE NOT NULL,
-        category VARCHAR(100),
-        target_muscles JSONB DEFAULT '[]',
-        instructions TEXT,
-        difficulty_level INTEGER CHECK (difficulty_level BETWEEN 1 AND 5),
-        equipment_needed TEXT,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        name CHARACTER VARYING NOT NULL,
+        description TEXT,
+        target_muscles JSON,
+        instructions TEXT
     );
 
-    -- Create Session table
-    CREATE TABLE IF NOT EXISTS sessions (
+    -- Create Workout table (singular name as per specification)
+    CREATE TABLE IF NOT EXISTS workout (
+        workout_id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES "user"(user_id) ON DELETE CASCADE,
+        workout_date DATE,
+        start_time TIMESTAMP WITHOUT TIME ZONE,
+        end_time TIMESTAMP WITHOUT TIME ZONE,
+        total_duration INTEGER
+    );
+
+    -- Create Session table (singular name as per specification)
+    CREATE TABLE IF NOT EXISTS session (
         session_id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-        workout_id INTEGER REFERENCES workouts(workout_id) ON DELETE SET NULL,
-        exercise_id INTEGER REFERENCES exercises(exercise_id) ON DELETE CASCADE,
-        session_date DATE DEFAULT CURRENT_DATE,
-        session_time TIME DEFAULT CURRENT_TIME,
-        duration INTEGER, -- in seconds
-        reps INTEGER DEFAULT 0,
-        sets INTEGER DEFAULT 1,
-        calories_burned DECIMAL(6,2),
-        session_status session_status_enum DEFAULT 'active',
-        video_path VARCHAR(500),
-        notes TEXT,
-        performance_score DECIMAL(5,2),
-        form_accuracy DECIMAL(5,2),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        workout_id INTEGER REFERENCES workout(workout_id) ON DELETE SET NULL,
+        exercise_id INTEGER REFERENCES exercise(exercise_id) ON DELETE CASCADE,
+        session_order INTEGER,
+        start_time TIMESTAMP WITHOUT TIME ZONE,
+        end_time TIMESTAMP WITHOUT TIME ZONE,
+        duration INTEGER,
+        planned_reps INTEGER,
+        actual_reps INTEGER,
+        session_status CHARACTER VARYING,
+        video_path TEXT
     );
 
-    -- Create SessionDetails table
-    CREATE TABLE IF NOT EXISTS session_details (
+    -- Create SessionDetails table (as per specification)
+    CREATE TABLE IF NOT EXISTS sessiondetails (
         detail_id SERIAL PRIMARY KEY,
-        session_id INTEGER REFERENCES sessions(session_id) ON DELETE CASCADE,
+        session_id INTEGER REFERENCES session(session_id) ON DELETE CASCADE,
         rep_number INTEGER,
-        timestamp_in_session DECIMAL(10,3), -- seconds from session start
-        pose_keypoints JSONB,
-        form_features JSONB,
-        form_score DECIMAL(5,2),
+        timestamp TIMESTAMP WITHOUT TIME ZONE,
+        features_json JSON,
         is_correct_form BOOLEAN,
-        feedback_message TEXT,
-        angles JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        incorrect_duration DOUBLE PRECISION
     );
 
-    -- Create SystemFeedback table
-    CREATE TABLE IF NOT EXISTS system_feedback (
+    -- Create SystemFeedback table (as per specification)
+    CREATE TABLE IF NOT EXISTS systemfeedback (
         feedback_id SERIAL PRIMARY KEY,
-        session_id INTEGER REFERENCES sessions(session_id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-        feedback_type feedback_type_enum NOT NULL,
-        message TEXT NOT NULL,
-        severity_level INTEGER CHECK (severity_level BETWEEN 1 AND 5),
-        is_automated BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        session_id INTEGER REFERENCES session(session_id) ON DELETE CASCADE,
+        timestamp TIMESTAMP WITHOUT TIME ZONE,
+        feedback_type CHARACTER VARYING,
+        message TEXT,
+        related_rep INTEGER
     );
 
-    -- Create Comment table
-    CREATE TABLE IF NOT EXISTS comments (
+    -- Create Comment table (singular name as per specification)
+    CREATE TABLE IF NOT EXISTS comment (
         comment_id SERIAL PRIMARY KEY,
-        session_id INTEGER REFERENCES sessions(session_id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-        comment_text TEXT NOT NULL,
-        is_public BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        session_id INTEGER REFERENCES session(session_id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES "user"(user_id) ON DELETE CASCADE,
+        timestamp TIMESTAMP WITHOUT TIME ZONE,
+        comment_text TEXT
     );
 
     -- Create indexes for performance optimization
-    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-    CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type);
-    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_sessions_exercise_id ON sessions(exercise_id);
-    CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(session_date);
-    CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(session_status);
-    CREATE INDEX IF NOT EXISTS idx_session_details_session_id ON session_details(session_id);
-    CREATE INDEX IF NOT EXISTS idx_session_details_rep_number ON session_details(rep_number);
-    CREATE INDEX IF NOT EXISTS idx_workouts_user_id ON workouts(user_id);
-    CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(exercise_name);
-    CREATE INDEX IF NOT EXISTS idx_exercises_category ON exercises(category);
-    CREATE INDEX IF NOT EXISTS idx_system_feedback_session_id ON system_feedback(session_id);
-    CREATE INDEX IF NOT EXISTS idx_system_feedback_user_id ON system_feedback(user_id);
-    CREATE INDEX IF NOT EXISTS idx_system_feedback_type ON system_feedback(feedback_type);
-    CREATE INDEX IF NOT EXISTS idx_comments_session_id ON comments(session_id);
-    CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
-
-    -- Create triggers for automatic updated_at timestamps
-    CREATE OR REPLACE FUNCTION update_updated_at_column()
-    RETURNS TRIGGER AS $$
-    BEGIN
-        NEW.updated_at = CURRENT_TIMESTAMP;
-        RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-
-    CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-    CREATE TRIGGER update_workouts_updated_at BEFORE UPDATE ON workouts
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-    CREATE TRIGGER update_exercises_updated_at BEFORE UPDATE ON exercises
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-    CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-    CREATE TRIGGER update_comments_updated_at BEFORE UPDATE ON comments
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    CREATE INDEX IF NOT EXISTS idx_user_email ON "user"(email);
+    CREATE INDEX IF NOT EXISTS idx_user_user_type ON "user"(user_type);
+    CREATE INDEX IF NOT EXISTS idx_session_workout_id ON session(workout_id);
+    CREATE INDEX IF NOT EXISTS idx_session_exercise_id ON session(exercise_id);
+    CREATE INDEX IF NOT EXISTS idx_session_start_time ON session(start_time);
+    CREATE INDEX IF NOT EXISTS idx_session_status ON session(session_status);
+    CREATE INDEX IF NOT EXISTS idx_sessiondetails_session_id ON sessiondetails(session_id);
+    CREATE INDEX IF NOT EXISTS idx_sessiondetails_rep_number ON sessiondetails(rep_number);
+    CREATE INDEX IF NOT EXISTS idx_workout_user_id ON workout(user_id);
+    CREATE INDEX IF NOT EXISTS idx_exercise_name ON exercise(name);
+    CREATE INDEX IF NOT EXISTS idx_systemfeedback_session_id ON systemfeedback(session_id);
+    CREATE INDEX IF NOT EXISTS idx_systemfeedback_type ON systemfeedback(feedback_type);
+    CREATE INDEX IF NOT EXISTS idx_comment_session_id ON comment(session_id);
+    CREATE INDEX IF NOT EXISTS idx_comment_user_id ON comment(user_id);
     """
 
     # Exercise seed data
     exercises_seed_sql = """
     -- Insert default exercises
-    INSERT INTO exercises (exercise_name, category, target_muscles, instructions, difficulty_level, equipment_needed) 
+    INSERT INTO exercise (name, target_muscles, instructions) 
     VALUES 
-    ('lunge', 'Lower Body', '["quadriceps", "glutes", "hamstrings", "calves"]', 
-     'Stand with feet hip-width apart. Step forward with one leg, lowering hips until both knees are bent at 90 degrees. Push back to starting position.', 
-     2, 'None'),
-    ('overhead_press', 'Upper Body', '["shoulders", "triceps", "upper_chest"]', 
-     'Stand with feet shoulder-width apart. Hold weights at shoulder level. Press weights overhead until arms are fully extended. Lower back to starting position.', 
-     3, 'Dumbbells or Barbell'),
-    ('plank', 'Core', '["core", "shoulders", "glutes"]', 
-     'Start in push-up position. Lower to forearms, keeping body in straight line from head to heels. Hold position.', 
-     2, 'None')
-    ON CONFLICT (exercise_name) DO NOTHING;
+    ('lunge', '["quadriceps", "glutes", "hamstrings", "calves"]', 
+     'Stand with feet hip-width apart. Step forward with one leg, lowering hips until both knees are bent at 90 degrees. Push back to starting position.'),
+    ('overhead_press', '["shoulders", "triceps", "upper_chest"]', 
+     'Stand with feet shoulder-width apart. Hold weights at shoulder level. Press weights overhead until arms are fully extended. Lower back to starting position.'),
+    ('plank', '["core", "shoulders", "glutes"]', 
+     'Start in push-up position. Lower to forearms, keeping body in straight line from head to heels. Hold position.');
     """
 
     try:
@@ -250,21 +187,13 @@ def drop_database_schema():
     
     drop_sql = """
     -- Drop tables in reverse order of dependencies
-    DROP TABLE IF EXISTS comments CASCADE;
-    DROP TABLE IF EXISTS system_feedback CASCADE;
-    DROP TABLE IF EXISTS session_details CASCADE;
-    DROP TABLE IF EXISTS sessions CASCADE;
-    DROP TABLE IF EXISTS exercises CASCADE;
-    DROP TABLE IF EXISTS workouts CASCADE;
-    DROP TABLE IF EXISTS users CASCADE;
-    
-    -- Drop functions
-    DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
-    
-    -- Drop enums
-    DROP TYPE IF EXISTS feedback_type_enum CASCADE;
-    DROP TYPE IF EXISTS session_status_enum CASCADE;
-    DROP TYPE IF EXISTS user_role_enum CASCADE;
+    DROP TABLE IF EXISTS comment CASCADE;
+    DROP TABLE IF EXISTS systemfeedback CASCADE;
+    DROP TABLE IF EXISTS sessiondetails CASCADE;
+    DROP TABLE IF EXISTS session CASCADE;
+    DROP TABLE IF EXISTS exercise CASCADE;
+    DROP TABLE IF EXISTS workout CASCADE;
+    DROP TABLE IF EXISTS "user" CASCADE;
     """
     
     try:
